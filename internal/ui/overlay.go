@@ -89,7 +89,7 @@ func (o *OverlayWindow) buildUI() {
 	bg.FillColor = color.Black
 	
 	// Content Container
-	o.container = fyne.NewContainerWithLayout(nil) // Manual layout or stack
+	o.container = fyne.NewContainer() // Manual layout or stack
 	
 	// Initialize Wave Bars (Hidden by default)
 	o.waveBars = make([]*canvas.Rectangle, 5)
@@ -118,12 +118,13 @@ func (o *OverlayWindow) buildUI() {
 	// Combine Background and Content
 	// We use a custom renderer or container to layer them
 	// Stack: BG -> Content
-	stack := fyne.NewContainerWithLayout(nil) // We will use a custom layout for the stack
-	stack.Add(bg)
-	stack.Add(o.container)
+	// Use NewContainer to avoid "invalid memory address" when passing nil layout to NewContainerWithLayout
+	stack := fyne.NewContainer() 
 	
 	// Custom Layout to ensure BG fills window
 	stack.Layout = &overlayLayout{bg: bg, content: o.container, overlay: o}
+	stack.Add(bg)
+	stack.Add(o.container)
 	
 	o.window.SetContent(stack)
 	o.updateUI()
