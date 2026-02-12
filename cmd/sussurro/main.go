@@ -12,6 +12,7 @@ import (
 	"github.com/cesp99/sussurro/internal/context"
 	"github.com/cesp99/sussurro/internal/llm"
 	"github.com/cesp99/sussurro/internal/logger"
+	"github.com/cesp99/sussurro/internal/pipeline"
 )
 
 func main() {
@@ -78,11 +79,19 @@ func main() {
 	defer llmEngine.Close()
 	log.Info("LLM engine initialized", "model", cfg.Models.LLM.Path)
 
+	// Initialize and Start Pipeline (Phase 6)
+	pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, log)
+	err = pipe.Start()
+	if err != nil {
+		log.Error("Failed to start pipeline", "error", err)
+		os.Exit(1)
+	}
+	defer pipe.Stop()
+
 	// Setup Signal Handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// TODO: Initialize Pipeline
 	log.Info("Sussurro initialized and waiting for signals")
 
 	// Wait for shutdown signal

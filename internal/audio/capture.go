@@ -1,7 +1,9 @@
 package audio
 
 import (
+	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/gen2brain/malgo"
@@ -35,20 +37,45 @@ func NewCaptureEngine(sampleRate, channels int) (*CaptureEngine, error) {
 	}, nil
 }
 
-// Start initiates the audio stream
-// onData is called with raw PCM bytes
-func (e *CaptureEngine) Start(onData func([]byte)) error {
+// StartRecording starts capturing audio and sends data to the provided channel
+func (e *CaptureEngine) StartRecording(dataChan chan<- []float32) error {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
 
 	if e.isRecording {
-		return fmt.Errorf("already recording")
+		return nil
 	}
 
+	// Define the callback that writes to the channel
+	onData := func(data []byte) {
+		// Convert byte slice to float32 slice
+		// data contains raw F32 samples (4 bytes each)
+		numSamples := len(data) / 4
+		floats := make([]float32, numSamples)
+		
+		for i := 0; i < numSamples; i++ {
+			bits := binary.LittleEndian.Uint32(data[i*4 : (i+1)*4])
+			floats[i] = math.Float32frombits(bits)
+		}
+		
+		// Non-blocking send
+		select {
+		case dataChan <- floats:
+		default:
+			// Drop frame if buffer is full
+		}
+	}
+	
+	// Start the internal device
+	return e.startDevice(onData)
+}
+
+// startDevice initiates the low-level audio stream
+func (e *CaptureEngine) startDevice(onData func([]byte)) error {
 	e.dataCallback = onData
 
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Capture)
-	deviceConfig.Capture.Format = malgo.FormatS16
+	deviceConfig.Capture.Format = malgo.FormatF32
 	deviceConfig.Capture.Channels = uint32(e.channels)
 	deviceConfig.SampleRate = uint32(e.sampleRate)
 	deviceConfig.Alsa.NoMMap = 1 // Common fix for Linux ALSA
@@ -58,15 +85,15 @@ func (e *CaptureEngine) Start(onData func([]byte)) error {
 	e.device, err = malgo.InitDevice(e.ctx.Context, deviceConfig, malgo.DeviceCallbacks{
 		Data: func(pOutputSample, pInputSamples []byte, framecount uint32) {
 			if e.dataCallback != nil {
-				// Create a copy of the data to be safe, or pass it directly if the consumer handles it quickly.
-				// For now, let's pass it. The slice is valid only for this callback.
-				// To be safe for async processing, we should copy it.
-				// Whisper processing is slow, so we definitely need to buffer this elsewhere.
-				// The CaptureEngine just hands off the raw buffer.
+				// We received F32 samples as bytes
+				// Copy them to ensure memory safety
+				if len(pInputSamples) == 0 {
+					return
+				}
 				
-				// Make a copy because pInputSamples is reused by miniaudio
 				dataCopy := make([]byte, len(pInputSamples))
 				copy(dataCopy, pInputSamples)
+				
 				e.dataCallback(dataCopy)
 			}
 		},
