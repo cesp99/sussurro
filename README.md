@@ -30,4 +30,28 @@ sussurro/
 
 ## Getting Started
 
-*(Instructions for building and running will be added here)*
+### Prerequisites
+
+- Go (latest version)
+- Make
+
+### Building
+
+```bash
+make build
+```
+
+### Running
+
+```bash
+make run
+```
+
+## Development Status
+
+### Phase 1: Project Foundation (Completed)
+- [x] Initialize Go module and project structure
+- [x] Set up configuration system (YAML-based)
+- [x] Implement logging infrastructure
+- [x] Create build system (Makefile)
+

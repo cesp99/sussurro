@@ -1,0 +1,28 @@
+app:
+  name: "Sussurro"
+  version: "0.1.0"
+  debug: true
+  log_level: "info" # debug, info, warn, error
+
+audio:
+  sample_rate: 16000
+  channels: 1
+  bit_depth: 16
+  buffer_size: 1024
+
+models:
+  asr:
+    path: "models/ggml-small.bin"
+    type: "whisper"
+    threads: 4
+  llm:
+    path: "models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    context_size: 32768
+    gpu_layers: 0
+    threads: 4
+
+hotkey:
+  trigger: "ctrl+shift+space"
+
+injection:
+  method: "keyboard"
