@@ -9,6 +9,7 @@ import (
 	"github.com/cesp99/sussurro/internal/asr"
 	"github.com/cesp99/sussurro/internal/audio"
 	"github.com/cesp99/sussurro/internal/config"
+	"github.com/cesp99/sussurro/internal/context"
 	"github.com/cesp99/sussurro/internal/llm"
 	"github.com/cesp99/sussurro/internal/logger"
 )
@@ -25,6 +26,19 @@ func main() {
 	// Initialize Logger
 	log := logger.Init(cfg.App.LogLevel)
 	log.Info("Starting Sussurro", "version", cfg.App.Version)
+
+	// Initialize Context Provider (Phase 5)
+	// TODO: Add config for provider selection (default to macOS for now)
+	ctxProvider := context.NewMacOSProvider()
+	defer ctxProvider.Close()
+	
+	// Test Context Detection
+	ctxInfo, err := ctxProvider.GetContext()
+	if err != nil {
+		log.Warn("Failed to get initial context", "error", err)
+	} else {
+		log.Info("Initial Context", "app", ctxInfo.AppName, "window", ctxInfo.WindowTitle)
+	}
 
 	// Initialize Audio Capture (Phase 2)
 	audioEngine, err := audio.NewCaptureEngine(cfg.Audio.SampleRate, cfg.Audio.Channels)
