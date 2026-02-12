@@ -12,6 +12,7 @@
 # Go
 vendor/
 go.work
+third_party/
 
 # IDEs
 .vscode/
