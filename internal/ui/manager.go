@@ -10,6 +10,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"fyne.io/fyne/v2/theme"
 )
 
 type ModelType string
@@ -75,6 +76,7 @@ func NewModelManager(w fyne.Window) *ModelManager {
 }
 
 func (m *ModelManager) GetContent() fyne.CanvasObject {
+	// Title Section
 	title := widget.NewLabelWithStyle("Sussurro Models", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 	
 	// Separate models by type
@@ -92,21 +94,24 @@ func (m *ModelManager) GetContent() fyne.CanvasObject {
 
 	m.statusLabel = widget.NewLabel("Ready")
 	m.statusLabel.Alignment = fyne.TextAlignCenter
+	m.statusLabel.TextStyle = fyne.TextStyle{Italic: true}
 
 	settingsButton := NewCapsuleButton("Settings", func() {
 		m.showSettings()
-	}, false)
+	}, false) // Secondary style
 
+	// Add separator lines if needed, or rely on spacing
 	content := container.NewVBox(
 		layout.NewSpacer(),
 		title,
 		layout.NewSpacer(),
 		asrContainer,
+		widget.NewSeparator(),
 		layout.NewSpacer(),
 		llmContainer,
+		widget.NewSeparator(),
 		layout.NewSpacer(),
-		settingsButton,
-		layout.NewSpacer(),
+		container.NewPadded(settingsButton),
 		m.statusLabel,
 		layout.NewSpacer(),
 	)
@@ -132,6 +137,7 @@ func (m *ModelManager) createModelRow(model ModelInfo) fyne.CanvasObject {
 	
 	desc := widget.NewLabel(model.Description)
 	desc.TextStyle = fyne.TextStyle{Italic: true}
+	// Make description grey if possible, or just italic
 	
 	info := container.NewVBox(name, desc)
 	
@@ -141,18 +147,19 @@ func (m *ModelManager) createModelRow(model ModelInfo) fyne.CanvasObject {
 		installed = true
 	}
 
-	var btn *CapsuleButton
+	var btn fyne.CanvasObject
 	if installed {
-		btn = NewCapsuleButton("Installed", func() {}, false)
-		// Disable button visually or logic? 
-		// For now just secondary style
+		// "Installed" Button: Checkmark Icon + Text
+		btn = NewCapsuleButtonWithIcon("Installed", theme.ConfirmIcon(), func() {}, false)
 	} else {
-		btn = NewCapsuleButton("Download", func() {
+		// "Download" Button: Download Icon + Text
+		btn = NewCapsuleButtonWithIcon("Download", theme.DownloadIcon(), func() {
 			go m.downloadModel(model)
 		}, true) // Primary
 	}
 
-	return container.NewBorder(nil, nil, info, btn)
+	// Right align the button
+	return container.NewBorder(nil, nil, info, container.NewCenter(btn))
 }
 
 func (m *ModelManager) downloadModel(model ModelInfo) {

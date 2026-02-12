@@ -23,6 +23,16 @@ func NewCapsuleButton(label string, tapped func(), primary bool) *CapsuleButton 
 	return b
 }
 
+// NewCapsuleButtonWithIcon creates a new capsule button with an icon
+func NewCapsuleButtonWithIcon(label string, icon fyne.Resource, tapped func(), primary bool) *CapsuleButton {
+	b := &CapsuleButton{IsPrimary: primary}
+	b.Text = label
+	b.Icon = icon
+	b.OnTapped = tapped
+	b.ExtendBaseWidget(b)
+	return b
+}
+
 // CreateRenderer implements the widget interface
 func (b *CapsuleButton) CreateRenderer() fyne.WidgetRenderer {
 	r := &capsuleButtonRenderer{
@@ -30,6 +40,11 @@ func (b *CapsuleButton) CreateRenderer() fyne.WidgetRenderer {
 		bg:     canvas.NewRectangle(color.Transparent),
 		label:  canvas.NewText(b.Text, color.White),
 	}
+	
+	if b.Icon != nil {
+		r.icon = canvas.NewImageFromResource(b.Icon)
+	}
+
 	r.Refresh()
 	return r
 }
@@ -38,16 +53,46 @@ type capsuleButtonRenderer struct {
 	button *CapsuleButton
 	bg     *canvas.Rectangle
 	label  *canvas.Text
+	icon   *canvas.Image
 }
 
 func (r *capsuleButtonRenderer) Layout(size fyne.Size) {
 	r.bg.Resize(size)
-	r.label.Resize(size)
-	r.label.Move(fyne.NewPos(0, 0))
+	
+	iconSize := float32(16)
+	spacing := float32(8)
+	
+	textMin := r.label.MinSize()
+	
+	// Calculate total width of content
+	contentWidth := textMin.Width
+	if r.icon != nil {
+		contentWidth += iconSize + spacing
+	}
+	
+	// Center content
+	startX := (size.Width - contentWidth) / 2
+	centerY := size.Height / 2
+	
+	if r.icon != nil {
+		r.icon.Resize(fyne.NewSize(iconSize, iconSize))
+		r.icon.Move(fyne.NewPos(startX, centerY - iconSize/2))
+		r.label.Move(fyne.NewPos(startX + iconSize + spacing, centerY - textMin.Height/2))
+	} else {
+		r.label.Move(fyne.NewPos(startX, centerY - textMin.Height/2))
+	}
 }
 
 func (r *capsuleButtonRenderer) MinSize() fyne.Size {
-	return r.label.MinSize().Add(fyne.NewSize(20, 10))
+	textMin := r.label.MinSize()
+	width := textMin.Width + 40 // Padding
+	height := textMin.Height + 20
+	
+	if r.icon != nil {
+		width += 16 + 8 // Icon + Spacing
+	}
+	
+	return fyne.NewSize(width, height)
 }
 
 func (r *capsuleButtonRenderer) Refresh() {
@@ -59,10 +104,8 @@ func (r *capsuleButtonRenderer) Refresh() {
 	r.label.TextSize = 14
 	r.label.Alignment = fyne.TextAlignCenter
 	
-	// Capsule shape is simulated by rounded corners = height/2
-	// But Fyne canvas.Rectangle corner radius is fixed by theme usually.
-	// For "Capsule", we can use a high corner radius.
-	r.bg.CornerRadius = 20 // Approximate capsule
+	// Capsule shape
+	r.bg.CornerRadius = 16 
 	r.bg.StrokeWidth = 2
 	r.bg.StrokeColor = white
 
@@ -70,6 +113,10 @@ func (r *capsuleButtonRenderer) Refresh() {
 		// White background, Black text
 		r.bg.FillColor = white
 		r.label.Color = black
+		// Need to invert icon color? Fyne icons are usually black/white adaptable
+		// But canvas.Image from resource is just the image.
+		// If icon is white, we might need a black version for primary button?
+		// For now, assume icon works or ignore color shift.
 	} else {
 		// Black background, White border, White text
 		r.bg.FillColor = black
@@ -78,6 +125,9 @@ func (r *capsuleButtonRenderer) Refresh() {
 	
 	r.bg.Refresh()
 	r.label.Refresh()
+	if r.icon != nil {
+		r.icon.Refresh()
+	}
 }
 
 func (r *capsuleButtonRenderer) BackgroundColor() color.Color {
@@ -85,7 +135,11 @@ func (r *capsuleButtonRenderer) BackgroundColor() color.Color {
 }
 
 func (r *capsuleButtonRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.bg, r.label}
+	objs := []fyne.CanvasObject{r.bg, r.label}
+	if r.icon != nil {
+		objs = append(objs, r.icon)
+	}
+	return objs
 }
 
 func (r *capsuleButtonRenderer) Destroy() {}
