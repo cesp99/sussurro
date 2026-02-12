@@ -11,6 +11,7 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
 ## Features
 
 - **Beautiful UI**: High-contrast black and white theme with a model manager.
+- **Smart Cleanup**: Algorithmic anti-hallucination guardrails ensure accurate transcription.
 - **Local Processing**: No data leaves your machine.
 - **System-Wide**: Works in any application where you can type.
 - **Context-Aware**: Adapts formatting based on the active application.

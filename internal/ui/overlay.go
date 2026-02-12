@@ -16,6 +16,7 @@ const (
 	StateIdle OverlayState = iota
 	StateListening
 	StateTranscribing
+	StateLoading
 )
 
 type OverlayWindow struct {
@@ -151,7 +152,7 @@ func (l *overlayLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 		for i, bar := range l.overlay.waveBars {
 			bar.Move(fyne.NewPos(startX + float32(i)*(6+gap), centerY - bar.Size().Height/2))
 		}
-	} else if l.overlay.state == StateTranscribing {
+	} else if l.overlay.state == StateTranscribing || l.overlay.state == StateLoading {
 		// Center Text
 		textMin := l.overlay.statusText.MinSize()
 		l.overlay.statusText.Move(fyne.NewPos(center - textMin.Width/2, centerY - textMin.Height/2))
@@ -193,9 +194,17 @@ func (o *OverlayWindow) updateUI() {
 		go o.animateWaves()
 
 	case StateTranscribing:
+		o.statusText.Text = "Transcribing..."
+		o.statusText.Refresh()
 		o.statusText.Show()
 		o.shimmerRect.Show()
 		go o.animateShimmer()
+
+	case StateLoading:
+		o.statusText.Text = "Loading..."
+		o.statusText.Refresh()
+		o.statusText.Show()
+		// Optional: Pulse animation or static
 	}
 	
 	o.container.Refresh()

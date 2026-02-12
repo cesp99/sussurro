@@ -25,7 +25,7 @@ func main() {
 	// Initialize Fyne App
 	a := app.New()
 	a.Settings().SetTheme(&theme.SussurroTheme{})
-	
+
 	// Load Configuration
 	cfg, err := config.LoadConfig("./configs")
 	if err != nil {
@@ -54,7 +54,8 @@ func main() {
 
 	// Create Overlay Window
 	overlay := ui.NewOverlayWindow(a)
-	// Don't show overlay until we start the backend
+	overlay.SetState(ui.StateLoading)
+	overlay.Show()
 
 	// If models are missing, show window immediately
 	if !modelsExist {
@@ -135,9 +136,9 @@ func main() {
 			return
 		}
 		defer pipe.Stop()
-		
-		// Show overlay once ready
-		overlay.Show()
+
+		// Backend ready
+		overlay.SetState(ui.StateIdle)
 
 		// Initialize Hotkey Handler
 		hkHandler, err := hotkey.NewHandler(cfg.Hotkey.Trigger, log)
@@ -155,14 +156,6 @@ func main() {
 			func() { // On Key Up
 				overlay.SetState(ui.StateTranscribing)
 				pipe.StopRecording()
-				
-				// We need a callback for when processing is done to reset to Idle
-				// For now, we can approximate or modify pipeline to support callbacks
-				// But pipe.StopRecording() is async (it launches a goroutine)
-				// We should modify pipeline to accept a completion callback
-				// OR we just wait a bit here (bad UX)
-				// OR we pass a callback to StopRecording? No, it's fire and forget.
-				// Let's modify pipeline.go to accept a status listener?
 			},
 		)
 		if err != nil {
@@ -172,7 +165,7 @@ func main() {
 		defer hkHandler.Unregister()
 
 		log.Info("Sussurro backend running")
-		
+
 		// Block forever (until app quit)
 		select {}
 	}()

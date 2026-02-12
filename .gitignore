@@ -30,4 +30,4 @@ models/
 
 # Logs
 *.log
-sussurro
+/sussurro
