@@ -5,10 +5,13 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cesp99/sussurro/internal/asr"
 	"github.com/cesp99/sussurro/internal/audio"
+	"github.com/cesp99/sussurro/internal/clipboard"
 	ctxProvider "github.com/cesp99/sussurro/internal/context"
+	"github.com/cesp99/sussurro/internal/injection"
 	"github.com/cesp99/sussurro/internal/llm"
 )
 
@@ -18,13 +21,19 @@ type Pipeline struct {
 	asrEngine   *asr.Engine
 	llmEngine   *llm.Engine
 	ctxProvider ctxProvider.Provider
+	injector    *injection.Injector
 	log         *slog.Logger
+	vadParams   audio.VADParams
 
 	// Channels for data flow
 	audioChan chan []float32
-	textChan  chan string
 	stopChan  chan struct{}
 	wg        sync.WaitGroup
+
+	// State
+	isRecording bool
+	audioBuffer []float32
+	mu          sync.Mutex // Protects isRecording and audioBuffer
 }
 
 // NewPipeline creates a new processing pipeline
@@ -33,6 +42,7 @@ func NewPipeline(
 	asrEngine *asr.Engine,
 	llmEngine *llm.Engine,
 	ctxProvider ctxProvider.Provider,
+	injector *injection.Injector,
 	log *slog.Logger,
 ) *Pipeline {
 	return &Pipeline{
@@ -40,9 +50,10 @@ func NewPipeline(
 		asrEngine:   asrEngine,
 		llmEngine:   llmEngine,
 		ctxProvider: ctxProvider,
+		injector:    injector,
 		log:         log,
+		vadParams:   audio.DefaultVADParams(),
 		audioChan:   make(chan []float32, 100), // Buffer audio chunks
-		textChan:    make(chan string, 10),     // Buffer text segments
 		stopChan:    make(chan struct{}),
 	}
 }
@@ -51,13 +62,9 @@ func NewPipeline(
 func (p *Pipeline) Start() error {
 	p.log.Info("Starting pipeline...")
 
-	// 1. Start Audio Capture Loop
+	// Start Audio Capture Loop (runs continuously to keep device ready)
 	p.wg.Add(1)
 	go p.captureLoop()
-
-	// 2. Start Processing Loop (ASR + LLM)
-	p.wg.Add(1)
-	go p.processLoop()
 
 	return nil
 }
@@ -70,6 +77,40 @@ func (p *Pipeline) Stop() {
 	p.log.Info("Pipeline stopped")
 }
 
+// StartRecording begins accumulating audio data
+func (p *Pipeline) StartRecording() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	if p.isRecording {
+		return
+	}
+	
+	p.isRecording = true
+	p.audioBuffer = nil // Clear buffer
+	p.log.Info("Recording started")
+}
+
+// StopRecording stops accumulating and triggers processing
+func (p *Pipeline) StopRecording() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	
+	if !p.isRecording {
+		return
+	}
+	
+	p.isRecording = false
+	p.log.Info("Recording stopped", "buffer_size", len(p.audioBuffer))
+	
+	// Process the captured audio in a separate goroutine to not block
+	// Make a copy of the buffer
+	bufferCopy := make([]float32, len(p.audioBuffer))
+	copy(bufferCopy, p.audioBuffer)
+	
+	go p.processSegment(bufferCopy)
+}
+
 func (p *Pipeline) captureLoop() {
 	defer p.wg.Done()
 	
@@ -80,29 +121,16 @@ func (p *Pipeline) captureLoop() {
 		return
 	}
 	
-	<-p.stopChan
-	p.audioEngine.Stop()
-}
-
-func (p *Pipeline) processLoop() {
-	defer p.wg.Done()
-
-	var audioBuffer []float32
-	// Configurable silence threshold and duration for VAD-like behavior
-	// const silenceThreshold = 0.01
-	// const silenceDuration = 500 * time.Millisecond 
+	defer p.audioEngine.Stop()
 
 	for {
 		select {
 		case chunk := <-p.audioChan:
-			audioBuffer = append(audioBuffer, chunk...)
-			
-			// Simple segmentation logic (placeholder)
-			// If buffer is long enough (e.g., 2 seconds), process it
-			if len(audioBuffer) > 16000*2 { // 2 seconds at 16kHz
-				p.processSegment(audioBuffer)
-				audioBuffer = nil // Clear buffer
+			p.mu.Lock()
+			if p.isRecording {
+				p.audioBuffer = append(p.audioBuffer, chunk...)
 			}
+			p.mu.Unlock()
 			
 		case <-p.stopChan:
 			return
@@ -111,6 +139,13 @@ func (p *Pipeline) processLoop() {
 }
 
 func (p *Pipeline) processSegment(samples []float32) {
+	if len(samples) == 0 {
+		p.log.Warn("Empty audio buffer, skipping processing")
+		return
+	}
+
+	start := time.Now()
+	
 	// 1. ASR: Transcribe Audio
 	text, err := p.asrEngine.Transcribe(samples)
 	if err != nil {
@@ -119,10 +154,11 @@ func (p *Pipeline) processSegment(samples []float32) {
 	}
 	
 	if strings.TrimSpace(text) == "" {
+		p.log.Info("No speech detected")
 		return
 	}
 	
-	p.log.Debug("ASR Output", "text", text)
+	p.log.Debug("ASR Output", "text", text, "duration", time.Since(start))
 
 	// 2. Context: Get Current Window Info
 	ctxInfo, err := p.ctxProvider.GetContext()
@@ -132,7 +168,8 @@ func (p *Pipeline) processSegment(samples []float32) {
 	}
 
 	// 3. LLM: Cleanup and Contextualize
-	cleanedText, err := p.llmEngine.CleanupText(text) // We might want to add context here later
+	// TODO: Pass context info to LLM if supported
+	cleanedText, err := p.llmEngine.CleanupText(text)
 	if err != nil {
 		p.log.Error("LLM cleanup failed", "error", err)
 		// Fallback to raw text
@@ -144,8 +181,22 @@ func (p *Pipeline) processSegment(samples []float32) {
 		"cleaned", cleanedText, 
 		"app", ctxInfo.AppName, 
 		"window", ctxInfo.WindowTitle,
+		"total_duration", time.Since(start),
 	)
 	
-	// 4. Output: Print to Stdout (or clipboard later)
+	// 4. Output: Print to Stdout
 	fmt.Println(cleanedText)
+	
+	// 5. Output: Inject Text
+	// First write to clipboard as backup/mechanism
+	if err := clipboard.Write(cleanedText); err != nil {
+		p.log.Error("Failed to write to clipboard", "error", err)
+	}
+	
+	// Then inject via keyboard
+	if p.injector != nil {
+		if err := p.injector.Inject(cleanedText); err != nil {
+			p.log.Error("Failed to inject text", "error", err)
+		}
+	}
 }
