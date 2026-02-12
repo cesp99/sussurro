@@ -9,6 +9,9 @@ WHISPER_GGML_INCLUDE := $(abspath $(WHISPER_DIR)/ggml/include)
 C_INCLUDE_PATH := $(WHISPER_INCLUDE):$(WHISPER_GGML_INCLUDE)
 LIBRARY_PATH := $(abspath $(WHISPER_DIR))
 
+# go-llama.cpp configuration
+LLAMA_DIR := third_party/go-llama.cpp
+
 # Export environment variables for CGO
 export C_INCLUDE_PATH
 export LIBRARY_PATH
@@ -22,10 +25,22 @@ deps:
 	@if [ ! -d "$(WHISPER_DIR)" ]; then \
 		echo "Cloning whisper.cpp..."; \
 		git clone https://github.com/ggerganov/whisper.cpp.git $(WHISPER_DIR); \
+		echo "Patching whisper.cpp symbols..."; \
+		chmod +x scripts/patch-whisper.sh; \
+		./scripts/patch-whisper.sh; \
 	fi
 	@echo "Building whisper.cpp library..."
 	@cmake -S $(WHISPER_DIR) -B $(WHISPER_DIR)/build -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF
 	@cmake --build $(WHISPER_DIR)/build --config Release --target whisper
+	@if [ ! -d "$(LLAMA_DIR)" ]; then \
+		echo "Cloning go-llama.cpp..."; \
+		git clone --recursive https://github.com/go-skynet/go-llama.cpp $(LLAMA_DIR); \
+		echo "Applying patch to go-llama.cpp..."; \
+		cd $(LLAMA_DIR) && make prepare; \
+	fi
+	@echo "Building go-llama.cpp library..."
+	@$(MAKE) -C $(LLAMA_DIR) clean
+	@$(MAKE) -C $(LLAMA_DIR) libbinding.a BUILD_TYPE=metal
 
 build: deps
 	@echo "Building $(APP_NAME)..."

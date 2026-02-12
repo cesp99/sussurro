@@ -31,5 +31,23 @@ else
     fi
 fi
 
-# Note: LLM download will be added in Phase 4
+# Download Qwen2.5-1.5B-Instruct GGUF
+# Source: HuggingFace (Qwen/Qwen2.5-1.5B-Instruct-GGUF)
+# Using q4_k_m quantization for balance of size/speed/quality
+LLM_URL="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+LLM_FILE="$MODEL_DIR/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+
+echo "Downloading Qwen2.5-1.5B-Instruct model..."
+if [ -f "$LLM_FILE" ]; then
+    echo "Model already exists at $LLM_FILE"
+else
+    curl -L -o "$LLM_FILE" "$LLM_URL"
+    if [ $? -eq 0 ]; then
+        echo "Download complete: $LLM_FILE"
+    else
+        echo "Download failed."
+        exit 1
+    fi
+fi
+
 echo "Done."

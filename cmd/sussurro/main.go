@@ -9,6 +9,7 @@ import (
 	"github.com/cesp99/sussurro/internal/asr"
 	"github.com/cesp99/sussurro/internal/audio"
 	"github.com/cesp99/sussurro/internal/config"
+	"github.com/cesp99/sussurro/internal/llm"
 	"github.com/cesp99/sussurro/internal/logger"
 )
 
@@ -49,11 +50,25 @@ func main() {
 	defer asrEngine.Close()
 	log.Info("ASR engine initialized", "model", cfg.Models.ASR.Path)
 
+	// Initialize LLM Engine (Phase 4)
+	if _, err := os.Stat(cfg.Models.LLM.Path); os.IsNotExist(err) {
+		log.Error("LLM model not found. Please run scripts/download-models.sh", "path", cfg.Models.LLM.Path)
+		os.Exit(1)
+	}
+
+	llmEngine, err := llm.NewEngine(cfg.Models.LLM.Path, cfg.Models.LLM.Threads, cfg.Models.LLM.ContextSize, cfg.Models.LLM.GpuLayers)
+	if err != nil {
+		log.Error("Failed to initialize LLM engine", "error", err)
+		os.Exit(1)
+	}
+	defer llmEngine.Close()
+	log.Info("LLM engine initialized", "model", cfg.Models.LLM.Path)
+
 	// Setup Signal Handling
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// TODO: Initialize LLM and Pipeline
+	// TODO: Initialize Pipeline
 	log.Info("Sussurro initialized and waiting for signals")
 
 	// Wait for shutdown signal
