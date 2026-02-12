@@ -36,7 +36,9 @@ func NewEngine(modelPath string, threads int, contextSize int, gpuLayers int) (*
 
 // CleanupText processes the raw transcription to remove artifacts and fix grammar
 func (e *Engine) CleanupText(rawText string) (string, error) {
-	prompt := fmt.Sprintf(`You are a text cleanup assistant. Your task is to clean up transcribed speech while preserving the original meaning.
+	// TinyLlama Chat template
+	prompt := fmt.Sprintf(`<|system|>
+You are a text cleanup assistant. Your task is to clean up transcribed speech while preserving the original meaning.
 Rules:
 1. Remove filler words (um, uh, like, you know)
 2. Fix grammar and punctuation
@@ -44,10 +46,10 @@ Rules:
 4. Maintain the speaker's intent and tone
 5. Do NOT add new information
 6. Do NOT change the meaning
-7. Output ONLY the cleaned text, nothing else
-
-Input: %s
-Output:`, rawText)
+7. Output ONLY the cleaned text, nothing else</s>
+<|user|>
+Input: %s</s>
+<|assistant|>`, rawText)
 
 	// We use Predict with empty options for now
 	// SetThreads is a PredictOption, not ModelOption

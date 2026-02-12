@@ -31,13 +31,13 @@ else
     fi
 fi
 
-# Download Qwen2.5-1.5B-Instruct GGUF
-# Source: HuggingFace (Qwen/Qwen2.5-1.5B-Instruct-GGUF)
-# Using q4_k_m quantization for balance of size/speed/quality
-LLM_URL="https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-LLM_FILE="$MODEL_DIR/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+# Download TinyLlama-1.1B-Chat-v1.0 GGUF (Fallback for older llama.cpp)
+# Source: HuggingFace (TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF)
+# Using Q4_K_M quantization
+LLM_URL="https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
+LLM_FILE="$MODEL_DIR/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
 
-echo "Downloading Qwen2.5-1.5B-Instruct model..."
+echo "Downloading TinyLlama-1.1B-Chat model..."
 if [ -f "$LLM_FILE" ]; then
     echo "Model already exists at $LLM_FILE"
 else

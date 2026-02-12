@@ -16,8 +16,8 @@ models:
     type: "whisper"
     threads: 4
   llm:
-    path: "models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
-    context_size: 32768
+    path: "models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
+    context_size: 2048 # TinyLlama default is 2048
     gpu_layers: 0
     threads: 4
 

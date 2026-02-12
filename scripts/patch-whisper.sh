@@ -20,7 +20,7 @@ echo "Patching whisper.cpp to rename ggml and gguf symbols..."
 # gguf_ -> wsp_gguf_
 # GGUF_ -> WSP_GGUF_
 # quantize_row_ -> wsp_quantize_row_ (and related functions)
-find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.cu" -o -name "*.m" -o -name "*.go" -o -name "CMakeLists.txt" -o -name "*.cmake" \) -not -path "*/.git/*" -print0 | xargs -0 sed -i '' \
+find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.cu" -o -name "*.m" -o -name "*.go" -o -name "*.metal" -o -name "CMakeLists.txt" -o -name "*.cmake" \) -not -path "*/.git/*" -print0 | xargs -0 sed -i '' \
     -e 's/ggml_/wsp_ggml_/g' \
     -e 's/GGML_/WSP_GGML_/g' \
     -e 's/gguf_/wsp_gguf_/g' \
