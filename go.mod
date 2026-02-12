@@ -4,6 +4,7 @@ go 1.23.5
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/gen2brain/malgo v0.11.24 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
