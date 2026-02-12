@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/driver/desktop"
+
 	"github.com/cesp99/sussurro/internal/asr"
 	"github.com/cesp99/sussurro/internal/audio"
 	"github.com/cesp99/sussurro/internal/config"
@@ -13,28 +17,19 @@ import (
 	"github.com/cesp99/sussurro/internal/llm"
 	"github.com/cesp99/sussurro/internal/logger"
 	"github.com/cesp99/sussurro/internal/pipeline"
-	"github.com/getlantern/systray"
+	"github.com/cesp99/sussurro/internal/ui"
+	"github.com/cesp99/sussurro/internal/ui/theme"
 )
 
 func main() {
-	// Systray must run on the main thread
-	systray.Run(onReady, onExit)
-}
-
-func onReady() {
-	systray.SetTitle("Sussurro")
-	systray.SetTooltip("Sussurro AI Assistant")
+	// Initialize Fyne App
+	a := app.New()
+	a.Settings().SetTheme(&theme.SussurroTheme{})
 	
-	mStatus := systray.AddMenuItem("Status: Idle", "Current status")
-	mStatus.Disable()
-	
-	mQuit := systray.AddMenuItem("Quit", "Quit Sussurro")
-
 	// Load Configuration
 	cfg, err := config.LoadConfig("./configs")
 	if err != nil {
 		fmt.Printf("Failed to load config: %v\n", err)
-		systray.Quit()
 		return
 	}
 
@@ -42,23 +37,59 @@ func onReady() {
 	log := logger.Init(cfg.App.LogLevel)
 	log.Info("Starting Sussurro", "version", cfg.App.Version)
 
+	// Check if models exist
+	modelsExist := true
+	if _, err := os.Stat(cfg.Models.ASR.Path); os.IsNotExist(err) {
+		modelsExist = false
+	}
+	if _, err := os.Stat(cfg.Models.LLM.Path); os.IsNotExist(err) {
+		modelsExist = false
+	}
+
+	// Create Main Window (Model Manager)
+	w := a.NewWindow("Sussurro Models")
+	manager := ui.NewModelManager(w)
+	w.SetContent(manager.GetContent())
+	w.Resize(fyne.NewSize(600, 500))
+
+	// If models are missing, show window immediately
+	if !modelsExist {
+		w.Show()
+	}
+
+	// Setup System Tray
+	if desk, ok := a.(desktop.App); ok {
+		m := fyne.NewMenu("Sussurro",
+			fyne.NewMenuItem("Show Models", func() {
+				w.Show()
+			}),
+			fyne.NewMenuItem("Quit", func() {
+				a.Quit()
+			}),
+		)
+		desk.SetSystemTrayMenu(m)
+	}
+
+	// Start Backend Services in Background
 	go func() {
-		// Initialize Context Provider (Phase 5)
+		// Initialize Context Provider
 		ctxProvider := context.NewMacOSProvider()
 		defer ctxProvider.Close()
 
-		// Initialize Audio Capture (Phase 2)
+		// Initialize Audio Capture
 		audioEngine, err := audio.NewCaptureEngine(cfg.Audio.SampleRate, cfg.Audio.Channels)
 		if err != nil {
 			log.Error("Failed to initialize audio engine", "error", err)
 			return
 		}
 		defer audioEngine.Close()
-		log.Info("Audio engine initialized", "sample_rate", cfg.Audio.SampleRate, "channels", cfg.Audio.Channels)
 
-		// Initialize ASR Engine (Phase 3)
+		// Initialize ASR Engine
+		// Wait for model to exist (if downloading)
+		// For now, we fail if not exists, user must restart after download?
+		// Better: Retry or wait.
 		if _, err := os.Stat(cfg.Models.ASR.Path); os.IsNotExist(err) {
-			log.Error("ASR model not found. Please run scripts/download-models.sh", "path", cfg.Models.ASR.Path)
+			log.Warn("ASR model missing. Please download via UI.")
 			return
 		}
 
@@ -68,11 +99,10 @@ func onReady() {
 			return
 		}
 		defer asrEngine.Close()
-		log.Info("ASR engine initialized", "model", cfg.Models.ASR.Path)
 
-		// Initialize LLM Engine (Phase 4)
+		// Initialize LLM Engine
 		if _, err := os.Stat(cfg.Models.LLM.Path); os.IsNotExist(err) {
-			log.Error("LLM model not found. Please run scripts/download-models.sh", "path", cfg.Models.LLM.Path)
+			log.Warn("LLM model missing. Please download via UI.")
 			return
 		}
 
@@ -82,17 +112,14 @@ func onReady() {
 			return
 		}
 		defer llmEngine.Close()
-		log.Info("LLM engine initialized", "model", cfg.Models.LLM.Path)
 
-		// Initialize Injector (Phase 6)
+		// Initialize Injector
 		injector, err := injection.NewInjector()
 		if err != nil {
 			log.Error("Failed to initialize injector", "error", err)
-			// Proceed without injector (will fall back to clipboard only)
 		}
-		log.Info("Injector initialized")
 
-		// Initialize and Start Pipeline (Phase 7 Integration)
+		// Initialize and Start Pipeline
 		pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, injector, log)
 		err = pipe.Start()
 		if err != nil {
@@ -101,7 +128,7 @@ func onReady() {
 		}
 		defer pipe.Stop()
 
-		// Initialize Hotkey Handler (Phase 7)
+		// Initialize Hotkey Handler
 		hkHandler, err := hotkey.NewHandler(cfg.Hotkey.Trigger, log)
 		if err != nil {
 			log.Error("Failed to initialize hotkey handler", "error", err)
@@ -111,22 +138,11 @@ func onReady() {
 		// Register Hotkey Callbacks
 		err = hkHandler.Register(
 			func() { // On Key Down
-				mStatus.SetTitle("Status: Recording...")
+				// Update tray icon or status? Fyne tray doesn't support dynamic title easily yet?
 				pipe.StartRecording()
 			},
 			func() { // On Key Up
-				mStatus.SetTitle("Status: Processing...")
 				pipe.StopRecording()
-				// After processing (which is async), we ideally want to set status back to Idle.
-				// But we don't have a callback for "Processing Done" here yet.
-				// For now, we can just leave it or set a timer.
-				// Or pipeline could accept a status callback.
-				// For simplicity, we just leave "Processing..." or set it to "Idle" after a delay.
-				// The user will see the text appear.
-				
-				// Quick hack: Reset status after 1 second (might be too fast)
-				// Better: pipeline emits events.
-				mStatus.SetTitle("Status: Idle") 
 			},
 		)
 		if err != nil {
@@ -135,18 +151,11 @@ func onReady() {
 		}
 		defer hkHandler.Unregister()
 
-		log.Info("Sussurro initialized and running", "hotkey", cfg.Hotkey.Trigger)
+		log.Info("Sussurro backend running")
 		
-		// Wait for quit signal from tray
-		<-mQuit.ClickedCh
-		log.Info("Quit requested from tray")
-		systray.Quit()
+		// Block forever (until app quit)
+		select {}
 	}()
-}
 
-func onExit() {
-	// Cleanup happens via defers in the goroutine when it returns/exits, 
-	// but since systray.Quit() kills the app, we might want to ensure graceful shutdown.
-	// For now, the OS cleanup is sufficient for this stage.
-	fmt.Println("Sussurro exiting...")
+	a.Run()
 }
