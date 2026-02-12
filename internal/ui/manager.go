@@ -93,6 +93,10 @@ func (m *ModelManager) GetContent() fyne.CanvasObject {
 	m.statusLabel = widget.NewLabel("Ready")
 	m.statusLabel.Alignment = fyne.TextAlignCenter
 
+	settingsButton := NewCapsuleButton("Settings", func() {
+		m.showSettings()
+	}, false)
+
 	content := container.NewVBox(
 		layout.NewSpacer(),
 		title,
@@ -100,6 +104,8 @@ func (m *ModelManager) GetContent() fyne.CanvasObject {
 		asrContainer,
 		layout.NewSpacer(),
 		llmContainer,
+		layout.NewSpacer(),
+		settingsButton,
 		layout.NewSpacer(),
 		m.statusLabel,
 		layout.NewSpacer(),
@@ -186,4 +192,33 @@ func (m *ModelManager) downloadModel(model ModelInfo) {
 	// Ideally we trigger a refresh of the list.
 	// For this simple version, we might just update status.
 	m.window.Content().Refresh()
+}
+
+func (m *ModelManager) showSettings() {
+	// TODO: Implement settings dialog with hotkey configuration
+	w := fyne.CurrentApp().NewWindow("Settings")
+	w.Resize(fyne.NewSize(400, 300))
+	
+	// Hotkey Input
+	hkEntry := widget.NewEntry()
+	hkEntry.SetPlaceHolder("e.g. ctrl+shift+space")
+	
+	// Load current hotkey from config (Need to access config here or pass it)
+	// For now, simple placeholder logic
+	
+	saveBtn := NewCapsuleButton("Save", func() {
+		// Save config and reload hotkey
+		w.Close()
+	}, true)
+	
+	w.SetContent(container.NewVBox(
+		widget.NewLabelWithStyle("Settings", fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+		layout.NewSpacer(),
+		widget.NewLabel("Global Hotkey:"),
+		hkEntry,
+		layout.NewSpacer(),
+		saveBtn,
+		layout.NewSpacer(),
+	))
+	w.Show()
 }

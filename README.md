@@ -54,16 +54,19 @@ make run
 
 On first launch, the **Model Manager** will appear, allowing you to download the required Whisper and LLM models.
 
-## Development Status
+## Installation
 
-### Phase 1: Project Foundation (Completed)
-- [x] Initialize Go module and project structure
-- [x] Set up configuration system (YAML-based)
-- [x] Implement logging infrastructure
-- [x] Create build system (Makefile)
+### Releases (Recommended)
+You can download pre-compiled binaries for macOS, Windows, and Linux from the [Releases](https://github.com/cesp99/sussurro/releases) page. No compilation required.
 
-### Phase 9: GUI & UX (New)
-- [x] Implement Fyne-based GUI
-- [x] Create custom Black & White theme
-- [x] Add Model Manager for easy model downloading
-- [x] Integrate System Tray with GUI
+### Building from Source
+If you prefer to compile from scratch:
+
+```bash
+make build
+```
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the [LICENSE](LICENSE) file for details.
+

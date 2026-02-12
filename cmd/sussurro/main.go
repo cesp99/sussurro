@@ -52,6 +52,10 @@ func main() {
 	w.SetContent(manager.GetContent())
 	w.Resize(fyne.NewSize(600, 500))
 
+	// Create Overlay Window
+	overlay := ui.NewOverlayWindow(a)
+	// Don't show overlay until we start the backend
+
 	// If models are missing, show window immediately
 	if !modelsExist {
 		w.Show()
@@ -62,6 +66,10 @@ func main() {
 		m := fyne.NewMenu("Sussurro",
 			fyne.NewMenuItem("Show Models", func() {
 				w.Show()
+			}),
+			fyne.NewMenuItem("Toggle Overlay", func() {
+				// Simple toggle for now
+				overlay.Show()
 			}),
 			fyne.NewMenuItem("Quit", func() {
 				a.Quit()
@@ -85,9 +93,6 @@ func main() {
 		defer audioEngine.Close()
 
 		// Initialize ASR Engine
-		// Wait for model to exist (if downloading)
-		// For now, we fail if not exists, user must restart after download?
-		// Better: Retry or wait.
 		if _, err := os.Stat(cfg.Models.ASR.Path); os.IsNotExist(err) {
 			log.Warn("ASR model missing. Please download via UI.")
 			return
@@ -121,12 +126,18 @@ func main() {
 
 		// Initialize and Start Pipeline
 		pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, injector, log)
+		pipe.SetOnCompletion(func() {
+			overlay.SetState(ui.StateIdle)
+		})
 		err = pipe.Start()
 		if err != nil {
 			log.Error("Failed to start pipeline", "error", err)
 			return
 		}
 		defer pipe.Stop()
+		
+		// Show overlay once ready
+		overlay.Show()
 
 		// Initialize Hotkey Handler
 		hkHandler, err := hotkey.NewHandler(cfg.Hotkey.Trigger, log)
@@ -138,11 +149,20 @@ func main() {
 		// Register Hotkey Callbacks
 		err = hkHandler.Register(
 			func() { // On Key Down
-				// Update tray icon or status? Fyne tray doesn't support dynamic title easily yet?
+				overlay.SetState(ui.StateListening)
 				pipe.StartRecording()
 			},
 			func() { // On Key Up
+				overlay.SetState(ui.StateTranscribing)
 				pipe.StopRecording()
+				
+				// We need a callback for when processing is done to reset to Idle
+				// For now, we can approximate or modify pipeline to support callbacks
+				// But pipe.StopRecording() is async (it launches a goroutine)
+				// We should modify pipeline to accept a completion callback
+				// OR we just wait a bit here (bad UX)
+				// OR we pass a callback to StopRecording? No, it's fire and forget.
+				// Let's modify pipeline.go to accept a status listener?
 			},
 		)
 		if err != nil {

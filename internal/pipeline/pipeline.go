@@ -24,6 +24,8 @@ type Pipeline struct {
 	injector    *injection.Injector
 	log         *slog.Logger
 	vadParams   audio.VADParams
+	
+	onCompletion func() // Callback for when processing finishes
 
 	// Channels for data flow
 	audioChan chan []float32
@@ -56,6 +58,11 @@ func NewPipeline(
 		audioChan:   make(chan []float32, 100), // Buffer audio chunks
 		stopChan:    make(chan struct{}),
 	}
+}
+
+// SetOnCompletion sets a callback to be called when processing is done
+func (p *Pipeline) SetOnCompletion(callback func()) {
+	p.onCompletion = callback
 }
 
 // Start begins the pipeline processing
@@ -139,6 +146,12 @@ func (p *Pipeline) captureLoop() {
 }
 
 func (p *Pipeline) processSegment(samples []float32) {
+	defer func() {
+		if p.onCompletion != nil {
+			p.onCompletion()
+		}
+	}()
+
 	if len(samples) == 0 {
 		p.log.Warn("Empty audio buffer, skipping processing")
 		return
