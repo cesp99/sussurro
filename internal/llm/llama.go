@@ -3,6 +3,7 @@ package llm
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	llama "github.com/go-skynet/go-llama.cpp"
 )
@@ -36,29 +37,39 @@ func NewEngine(modelPath string, threads int, contextSize int, gpuLayers int) (*
 
 // CleanupText processes the raw transcription to remove artifacts and fix grammar
 func (e *Engine) CleanupText(rawText string) (string, error) {
-	// TinyLlama Chat template
+	// TinyLlama Chat template - Simplified for stability
 	prompt := fmt.Sprintf(`<|system|>
-You are a text cleanup assistant. Your task is to clean up transcribed speech while preserving the original meaning.
-Rules:
-1. Remove filler words (um, uh, like, you know)
-2. Fix grammar and punctuation
-3. Remove speech artifacts and repetitions
-4. Maintain the speaker's intent and tone
-5. Do NOT add new information
-6. Do NOT change the meaning
-7. Output ONLY the cleaned text, nothing else</s>
+You are a text cleanup assistant. Rewrite the user's text to remove filler words and fix grammar. Output ONLY the corrected text. Do not provide examples or notes.</s>
 <|user|>
-Input: %s</s>
+%s</s>
 <|assistant|>`, rawText)
 
-	// We use Predict with empty options for now
-	// SetThreads is a PredictOption, not ModelOption
-	cleaned, err := e.model.Predict(prompt, llama.SetTokens(0), llama.SetThreads(e.threads))
+	// We use Predict with strict options
+	cleaned, err := e.model.Predict(prompt, 
+		llama.SetTokens(0), 
+		llama.SetThreads(e.threads),
+		llama.SetTemperature(0.1), // Low temperature for deterministic output
+		llama.SetTopP(0.9),
+	)
 	if err != nil {
 		return "", fmt.Errorf("prediction failed: %w", err)
 	}
 
-	return cleaned, nil
+	// Post-processing cleanup
+	cleaned = strings.TrimSpace(cleaned)
+	
+	// Cut off at common hallucination markers if stop strings didn't catch them
+	if idx := strings.Index(cleaned, "Input:"); idx != -1 {
+		cleaned = cleaned[:idx]
+	}
+	if idx := strings.Index(cleaned, "Example:"); idx != -1 {
+		cleaned = cleaned[:idx]
+	}
+	if idx := strings.Index(cleaned, "<|user|>"); idx != -1 {
+		cleaned = cleaned[:idx]
+	}
+	
+	return strings.TrimSpace(cleaned), nil
 }
 
 // Close releases resources
