@@ -22,10 +22,11 @@ type AppConfig struct {
 }
 
 type AudioConfig struct {
-	SampleRate int `mapstructure:"sample_rate"`
-	Channels   int `mapstructure:"channels"`
-	BitDepth   int `mapstructure:"bit_depth"`
-	BufferSize int `mapstructure:"buffer_size"`
+	SampleRate  int    `mapstructure:"sample_rate"`
+	Channels    int    `mapstructure:"channels"`
+	BitDepth    int    `mapstructure:"bit_depth"`
+	BufferSize  int    `mapstructure:"buffer_size"`
+	MaxDuration string `mapstructure:"max_duration"`
 }
 
 type ModelsConfig struct {
@@ -55,11 +56,17 @@ type InjectionConfig struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
-	viper.SetConfigName("default")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(path)
-	viper.AddConfigPath("./configs")
-	viper.AddConfigPath(".")
+	if path != "" {
+		// If a specific file path is provided, use it directly
+		viper.SetConfigFile(path)
+	} else {
+		// Otherwise search in default locations
+		viper.SetConfigName("default")
+		viper.SetConfigType("yaml")
+		viper.AddConfigPath(".")
+		viper.AddConfigPath("./configs")
+		viper.AddConfigPath("$HOME/.sussurro")
+	}
 
 	viper.SetEnvPrefix("SUSSURRO")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))

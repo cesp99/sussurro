@@ -3,9 +3,10 @@ package llm
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
-	llama "github.com/go-skynet/go-llama.cpp"
+	llama "github.com/AshkanYarmoradi/go-llama.cpp"
 )
 
 // Engine handles the LLM model and text generation
@@ -37,27 +38,45 @@ func NewEngine(modelPath string, threads int, contextSize int, gpuLayers int) (*
 
 // CleanupText processes the raw transcription to remove artifacts and fix grammar
 func (e *Engine) CleanupText(rawText string) (string, error) {
-	// TinyLlama Chat template - Simplified for stability
-	prompt := fmt.Sprintf(`<|system|>
-You are a text cleanup assistant. Rewrite the user's text to remove filler words and fix grammar. Output ONLY the corrected text. Do not provide examples or notes.</s>
-<|user|>
-%s</s>
-<|assistant|>`, rawText)
+	// Qwen 3 Chat template (ChatML) - Explicitly disable thinking mode for speed
+	prompt := fmt.Sprintf(`<|im_start|>system
+You are a professional text editor. Transform raw speech transcriptions into polished written text.
+
+Apply these transformations:
+- Remove filler words (um, uh, ah, like, you know, I mean, sort of, kind of, basically, actually, literally)
+- Eliminate false starts and self-corrections (keep only the final intended phrase)
+- Fix grammar, punctuation, and sentence structure
+- Remove repetitions and redundant phrases
+- Convert spoken patterns to written prose
+- Preserve original meaning, tone, and technical terms
+
+Output only the corrected text with no preamble, labels, or explanations.
+/no_think<|im_end|>
+<|im_start|>user
+%s<|im_end|>
+<|im_start|>assistant
+`, rawText)
 
 	// We use Predict with strict options
-	cleaned, err := e.model.Predict(prompt, 
-		llama.SetTokens(0), 
+	cleaned, err := e.model.Predict(prompt,
+		llama.SetTokens(0),
 		llama.SetThreads(e.threads),
 		llama.SetTemperature(0.1), // Low temperature for deterministic output
 		llama.SetTopP(0.9),
+		llama.SetStopWords("<|im_end|>"),
 	)
 	if err != nil {
 		return "", fmt.Errorf("prediction failed: %w", err)
 	}
 
 	// Post-processing cleanup
+
+	// Remove <think>...</think> blocks (including multiline)
+	re := regexp.MustCompile(`(?s)<think>.*?</think>`)
+	cleaned = re.ReplaceAllString(cleaned, "")
+
 	cleaned = strings.TrimSpace(cleaned)
-	
+
 	// Cut off at common hallucination markers if stop strings didn't catch them
 	if idx := strings.Index(cleaned, "Input:"); idx != -1 {
 		cleaned = cleaned[:idx]
@@ -68,14 +87,14 @@ You are a text cleanup assistant. Rewrite the user's text to remove filler words
 	if idx := strings.Index(cleaned, "<|user|>"); idx != -1 {
 		cleaned = cleaned[:idx]
 	}
-	
+
 	cleaned = strings.TrimSpace(cleaned)
 
 	// Anti-Hallucination Check
 	if !validateOutput(rawText, cleaned) {
 		return rawText, nil // Fallback to raw text
 	}
-	
+
 	return cleaned, nil
 }
 
@@ -90,7 +109,7 @@ func validateOutput(raw, cleaned string) bool {
 	// 2. Pattern Check for Common Hallucinations
 	lowerCleaned := strings.ToLower(cleaned)
 	invalidPrefixes := []string{
-		"the user", "input:", "output:", "rewrite", "corrected text:", 
+		"the user", "input:", "output:", "rewrite", "corrected text:",
 		"here is", "sure, i can", "i'm sorry", "assistant:",
 	}
 	for _, prefix := range invalidPrefixes {
@@ -104,34 +123,36 @@ func validateOutput(raw, cleaned string) bool {
 	// We ignore common filler words.
 	rawWords := strings.Fields(strings.ToLower(raw))
 	cleanedLower := strings.ToLower(cleaned)
-	
+
 	missingCount := 0
 	totalSignificant := 0
-	
+
 	// Basic stop words to ignore
 	stopWords := map[string]bool{
-		"umm": true, "ah": true, "uh": true, "like": true, "so": true, 
+		"umm": true, "ah": true, "uh": true, "like": true, "so": true,
 		"just": true, "a": true, "an": true, "the": true,
-	} 
-	
+	}
+
 	for _, w := range rawWords {
 		// Clean punctuation
 		w = strings.Trim(w, ".,!?-")
-		if w == "" || stopWords[w] { continue }
-		
+		if w == "" || stopWords[w] {
+			continue
+		}
+
 		totalSignificant++
 		// Check if word exists in cleaned text
 		if !strings.Contains(cleanedLower, w) {
 			missingCount++
 		}
 	}
-	
+
 	// If we are missing more than 50% of significant words, it's likely a hallucination
 	// (or a complete rewrite which we don't want)
 	if totalSignificant > 0 && float64(missingCount)/float64(totalSignificant) > 0.5 {
 		return false
 	}
-	
+
 	return true
 }
 

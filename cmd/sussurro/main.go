@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -24,8 +25,12 @@ func main() {
 }
 
 func run() {
+	// Parse command line flags
+	configPath := flag.String("config", "", "Path to configuration file")
+	flag.Parse()
+
 	// Load Configuration
-	cfg, err := config.LoadConfig("./configs")
+	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
 		fmt.Printf("Failed to load config: %v\n", err)
 		os.Exit(1)
@@ -84,7 +89,7 @@ func run() {
 	}
 
 	// Initialize and Start Pipeline
-	pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, injector, log, cfg.Audio.SampleRate)
+	pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, injector, log, cfg.Audio.SampleRate, cfg.Audio.MaxDuration)
 
 	// No UI to update on completion, so we can pass nil or a logging callback
 	pipe.SetOnCompletion(func() {

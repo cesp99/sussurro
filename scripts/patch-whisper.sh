@@ -25,6 +25,8 @@ find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -n
     -e 's/GGML_/WSP_GGML_/g' \
     -e 's/gguf_/wsp_gguf_/g' \
     -e 's/GGUF_/WSP_GGUF_/g' \
+    -e 's/ggml::/wsp_ggml::/g' \
+    -e 's/namespace ggml/namespace wsp_ggml/g' \
     -e 's/quantize_row_/wsp_quantize_row_/g' \
     -e 's/dequantize_row_/wsp_dequantize_row_/g' \
     -e 's/quantize_iq/wsp_quantize_iq/g' \

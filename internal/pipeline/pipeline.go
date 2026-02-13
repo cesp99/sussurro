@@ -36,6 +36,7 @@ type Pipeline struct {
 	isRecording bool
 	audioBuffer []float32
 	mu          sync.Mutex // Protects isRecording and audioBuffer
+	maxDuration string
 }
 
 // NewPipeline creates a new processing pipeline
@@ -47,6 +48,7 @@ func NewPipeline(
 	injector *injection.Injector,
 	log *slog.Logger,
 	sampleRate int,
+	maxDuration string,
 ) *Pipeline {
 	vadParams := audio.DefaultVADParams()
 	vadParams.SampleRate = sampleRate // Override with actual sample rate
@@ -61,6 +63,7 @@ func NewPipeline(
 		vadParams:   vadParams,
 		audioChan:   make(chan []float32, 100), // Buffer audio chunks
 		stopChan:    make(chan struct{}),
+		maxDuration: maxDuration,
 	}
 }
 
@@ -142,8 +145,26 @@ func (p *Pipeline) captureLoop() {
 
 	defer p.audioEngine.Stop()
 
-	// Max recording duration (30 seconds at 16kHz)
-	maxSamples := 16000 * 30
+	// Calculate max samples based on configuration
+	var maxSamples int
+	if strings.ToLower(p.maxDuration) == "infinite" || p.maxDuration == "0" {
+		maxSamples = 1<<31 - 1 // Effectively infinite
+		p.log.Info("Max recording duration set to infinite")
+	} else {
+		// Default to 30s if not specified or invalid
+		durationStr := p.maxDuration
+		if durationStr == "" {
+			durationStr = "30s"
+		}
+
+		d, err := time.ParseDuration(durationStr)
+		if err != nil {
+			p.log.Warn("Invalid max_duration format, defaulting to 30s", "value", p.maxDuration, "error", err)
+			d = 30 * time.Second
+		}
+		maxSamples = int(float64(d.Seconds()) * float64(p.vadParams.SampleRate))
+		p.log.Info("Max recording duration set", "duration", d, "max_samples", maxSamples)
+	}
 
 	for {
 		select {
@@ -152,7 +173,7 @@ func (p *Pipeline) captureLoop() {
 			if p.isRecording {
 				// Safety check: Auto-stop if recording gets too long (prevents OOM/Stuck state)
 				if len(p.audioBuffer) >= maxSamples {
-					p.log.Warn("Max recording duration reached (30s), forcing stop")
+					p.log.Warn("Max recording duration reached, forcing stop", "limit", p.maxDuration)
 					p.isRecording = false
 
 					// Copy and process immediately

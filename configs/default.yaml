@@ -9,15 +9,16 @@ audio:
   channels: 1
   bit_depth: 16
   buffer_size: 1024
+  max_duration: "60s"
 
 models:
   asr:
-    path: "models/ggml-small.bin"
+    path: "models/ggml-base.bin"
     type: "whisper"
     threads: 4
   llm:
-    path: "models/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
-    context_size: 2048 # TinyLlama default is 2048
+    path: "models/qwen3-1.7b-q4_k_m.gguf"
+    context_size: 32768
     gpu_layers: 0
     threads: 4
 

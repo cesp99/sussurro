@@ -34,9 +34,7 @@ deps:
 	@cmake --build $(WHISPER_DIR)/build --config Release --target whisper
 	@if [ ! -d "$(LLAMA_DIR)" ]; then \
 		echo "Cloning go-llama.cpp..."; \
-		git clone --recursive https://github.com/go-skynet/go-llama.cpp $(LLAMA_DIR); \
-		echo "Applying patch to go-llama.cpp..."; \
-		cd $(LLAMA_DIR) && make prepare; \
+		git clone --recursive https://github.com/AshkanYarmoradi/go-llama.cpp $(LLAMA_DIR); \
 	fi
 	@echo "Building go-llama.cpp library..."
 	@$(MAKE) -C $(LLAMA_DIR) clean
