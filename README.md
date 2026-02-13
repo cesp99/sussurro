@@ -63,7 +63,7 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
     ./bin/sussurro -config my_custom_config.yaml
     ```
 
-The application runs in the background. Hold `Ctrl+Space` to talk, release to transcribe.
+The application runs in the background. Hold `Ctrl+Shift+Space` to talk, release to transcribe.
 
 ## License
 

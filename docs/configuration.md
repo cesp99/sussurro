@@ -54,7 +54,7 @@ models:
 ### Hotkey Settings
 ```yaml
 hotkey:
-  trigger: "Ctrl+Space" # The key combination to hold for recording
+  trigger: "Ctrl+Shift+Space" # The key combination to hold for recording
 ```
 
 ### Environment Variables
