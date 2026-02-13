@@ -157,12 +157,29 @@ func (p *Pipeline) processSegment(samples []float32) {
 		return
 	}
 
+	// Check duration (SampleRate is typically 16000)
+	// If recording is less than 5 seconds, skip transcription
+	durationSeconds := float64(len(samples)) / float64(p.vadParams.SampleRate)
+	if durationSeconds < 5.0 {
+		p.log.Info("Recording too short (< 5s), skipping transcription", "duration", durationSeconds)
+		return
+	}
+
 	start := time.Now()
 	
 	// 1. ASR: Transcribe Audio
 	text, err := p.asrEngine.Transcribe(samples)
 	if err != nil {
 		p.log.Error("ASR failed", "error", err)
+		return
+	}
+	
+	// Check word count
+	// If detected less than 5 words, avoid transcribing completely (treat as false positive)
+	// We do this after transcription as we need the text to count words
+	words := strings.Fields(text)
+	if len(words) < 5 {
+		p.log.Info("Transcription too short (< 5 words), ignoring", "text", text, "word_count", len(words))
 		return
 	}
 	
