@@ -125,6 +125,7 @@ func (p *Pipeline) StopRecording() bool {
 	bufferCopy := make([]float32, len(p.audioBuffer))
 	copy(bufferCopy, p.audioBuffer)
 
+	p.wg.Add(1)
 	go p.processSegment(bufferCopy)
 	return true
 }
@@ -159,6 +160,7 @@ func (p *Pipeline) captureLoop() {
 					copy(bufferCopy, p.audioBuffer)
 
 					// Launch processing in background
+					p.wg.Add(1)
 					go p.processSegment(bufferCopy)
 				} else {
 					p.audioBuffer = append(p.audioBuffer, chunk...)
@@ -173,6 +175,7 @@ func (p *Pipeline) captureLoop() {
 }
 
 func (p *Pipeline) processSegment(samples []float32) {
+	defer p.wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
 			p.log.Error("Recovered from panic in processSegment", "error", r)
