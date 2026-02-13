@@ -154,8 +154,13 @@ func main() {
 				pipe.StartRecording()
 			},
 			func() { // On Key Up
-				overlay.SetState(ui.StateTranscribing)
-				pipe.StopRecording()
+				if pipe.StopRecording() {
+					overlay.SetState(ui.StateTranscribing)
+				} else {
+					// Was not recording (likely auto-stopped due to duration limit)
+					// Ensure UI is back to idle
+					overlay.SetState(ui.StateIdle)
+				}
 			},
 		)
 		if err != nil {
