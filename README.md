@@ -1,5 +1,11 @@
 # Sussurro
 
+[![License: GPLv3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![Language: Go](https://img.shields.io/badge/Language-Go-00ADD8?style=flat&logo=go)](https://golang.org)
+[![Platform: macOS | Windows | Linux](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-blue?style=flat&logo=apple)](https://github.com/cesp99/sussurro)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=flat)](https://github.com/cesp99/sussurro/actions)
+
 Sussurro is a fully local, open-source, cross-platform CLI voice-to-text system that acts as a system-wide AI dictation layer. It transforms speech into clean, formatted, context-aware text injected into any application.
 
 ## Overview
