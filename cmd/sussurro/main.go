@@ -126,7 +126,7 @@ func main() {
 		}
 
 		// Initialize and Start Pipeline
-		pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, injector, log)
+		pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, injector, log, cfg.Audio.SampleRate)
 		pipe.SetOnCompletion(func() {
 			overlay.SetState(ui.StateIdle)
 		})

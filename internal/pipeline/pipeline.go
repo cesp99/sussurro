@@ -46,7 +46,11 @@ func NewPipeline(
 	ctxProvider ctxProvider.Provider,
 	injector *injection.Injector,
 	log *slog.Logger,
+	sampleRate int,
 ) *Pipeline {
+	vadParams := audio.DefaultVADParams()
+	vadParams.SampleRate = sampleRate // Override with actual sample rate
+
 	return &Pipeline{
 		audioEngine: audioEngine,
 		asrEngine:   asrEngine,
@@ -54,7 +58,7 @@ func NewPipeline(
 		ctxProvider: ctxProvider,
 		injector:    injector,
 		log:         log,
-		vadParams:   audio.DefaultVADParams(),
+		vadParams:   vadParams,
 		audioChan:   make(chan []float32, 100), // Buffer audio chunks
 		stopChan:    make(chan struct{}),
 	}
@@ -91,6 +95,11 @@ func (p *Pipeline) StartRecording() {
 
 	if p.isRecording {
 		return
+	}
+
+	// Drain channel to ensure no stale audio is included
+	for len(p.audioChan) > 0 {
+		<-p.audioChan
 	}
 
 	p.isRecording = true
@@ -181,6 +190,8 @@ func (p *Pipeline) processSegment(samples []float32) {
 	// Check duration (SampleRate is typically 16000)
 	// If recording is less than 2 seconds, skip transcription
 	durationSeconds := float64(len(samples)) / float64(p.vadParams.SampleRate)
+	p.log.Info("Processing segment", "samples", len(samples), "rate", p.vadParams.SampleRate, "duration", durationSeconds)
+
 	if durationSeconds < 2.0 {
 		p.log.Info("Recording too short (< 2s), skipping transcription", "duration", durationSeconds)
 		return
