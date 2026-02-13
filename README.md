@@ -1,6 +1,6 @@
 # Sussurro
 
-Sussurro is a fully local, open-source, cross-platform desktop voice-to-text system that acts as a system-wide AI dictation layer. It transforms speech into clean, formatted, context-aware text injected into any application.
+Sussurro is a fully local, open-source, cross-platform CLI voice-to-text system that acts as a system-wide AI dictation layer. It transforms speech into clean, formatted, context-aware text injected into any application.
 
 ## Overview
 
@@ -10,7 +10,7 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
 
 ## Features
 
-- **Beautiful UI**: High-contrast black and white theme with a model manager.
+- **CLI-First**: Lightweight command-line interface controlled by configuration files.
 - **Smart Cleanup**: Algorithmic anti-hallucination guardrails (minimum duration and word count checks) ensure accurate transcription and reduce false positives.
 - **Local Processing**: No data leaves your machine.
 - **System-Wide**: Works in any application where you can type.
@@ -25,11 +25,13 @@ The project is written in Go and structured as follows:
 sussurro/
 ├── cmd/            # Application entry points
 ├── internal/       # Private application and library code
-│   ├── ui/         # Fyne-based GUI code
-│   ├── theme/      # Custom UI theme
+│   ├── pipeline/   # Core processing pipeline
+│   ├── asr/        # ASR engine
+│   ├── llm/        # LLM engine
 │   └── ...
 ├── pkg/            # Library code that's ok to use by external applications
 ├── models/         # Model files (gitignored)
+├── scripts/        # Helper scripts
 └── configs/        # Configuration files
 ```
 
@@ -41,33 +43,47 @@ sussurro/
 - Make
 - C/C++ Compiler (for building dependencies)
 
-### Building
+### Installation
 
-```bash
-make build
-```
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/cesp99/sussurro.git
+   cd sussurro
+   ```
+
+2. Download Models:
+   Since Sussurro runs locally, you need to download the required models first.
+   ```bash
+   chmod +x scripts/download-models.sh
+   ./scripts/download-models.sh
+   ```
+   This will download Whisper (small) and TinyLlama models to the `models/` directory.
+
+3. Build the application:
+   ```bash
+   make build
+   ```
 
 ### Running
 
+To run Sussurro:
+
+```bash
+./bin/sussurro
+```
+Or via Make:
 ```bash
 make run
 ```
 
-On first launch, the **Model Manager** will appear, allowing you to download the required Whisper and LLM models.
+The application will start in the background. Use the configured hotkey (default: `Ctrl+Space`) to start recording. Release the hotkey to transcribe and inject text.
 
-## Installation
+Press `Ctrl+C` in the terminal to stop the application gracefully.
 
-### Releases (Recommended)
-You can download pre-compiled binaries for macOS, Windows, and Linux from the [Releases](https://github.com/cesp99/sussurro/releases) page. No compilation required.
+## Configuration
 
-### Building from Source
-If you prefer to compile from scratch:
-
-```bash
-make build
-```
+Configuration is loaded from `configs/default.yaml`. You can customize models, audio settings, and hotkeys there.
 
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the [LICENSE](LICENSE) file for details.
-

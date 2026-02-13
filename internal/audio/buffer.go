@@ -15,7 +15,7 @@ type StreamBuffer struct {
 
 func NewStreamBuffer() *StreamBuffer {
 	return &StreamBuffer{
-		samples: make([]float32, 0, 16000*5), // Pre-allocate for ~5 seconds
+		samples: make([]float32, 0, 16000*2), // Pre-allocate for ~2 seconds
 	}
 }
 
