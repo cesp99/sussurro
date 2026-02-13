@@ -18,7 +18,7 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
 - **Local Processing**: No data leaves your machine.
 - **System-Wide**: Works in any application where you can type.
 - **Configurable**: Load custom configs at runtime.
-- **Cross-Platform**: Designed for macOS, Windows, and Linux.
+- **Cross-Platform**: Designed for macOS, Windows and Linux.
 
 ## Documentation
 
@@ -34,6 +34,15 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
 - Make
 - C/C++ Compiler
 
+### Prebuilt Binaries
+
+1.  Download the latest release for your OS from the GitHub Releases page.
+2.  Unzip the archive and run:
+    ```bash
+    ./sussurro
+    ```
+    On first run Sussurro creates `~/.sussurro/config.yaml` and asks to download the models into `~/.sussurro/models`.
+
 ### Quick Install
 
 1.  **Clone the repository**:
@@ -42,25 +51,19 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
     cd sussurro
     ```
 
-2.  **Download Models**:
-    ```bash
-    chmod +x scripts/download-models.sh
-    ./scripts/download-models.sh
-    ```
-    This downloads the Whisper (small) and Qwen 3 (1.7B) models to `models/`.
-
-3.  **Build**:
+2.  **Build**:
     ```bash
     make build
     ```
 
-4.  **Run**:
+3.  **Run**:
     ```bash
     ./bin/sussurro
     ```
+    On first run Sussurro creates `~/.sussurro/config.yaml` and asks to download the models into `~/.sussurro/models`.
     Or with a specific config:
     ```bash
-    ./bin/sussurro -config my_custom_config.yaml
+    ./bin/sussurro -config /path/to/config.yaml
     ```
 
 The application runs in the background. Hold `Ctrl+Shift+Space` to talk, release to transcribe.

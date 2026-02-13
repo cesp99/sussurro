@@ -36,17 +36,11 @@ make build
 
 The binary will be output to `bin/sussurro`.
 
-## Downloading Models
+## First Run Setup
 
-Before running, you must download the AI models. We provide a script for this:
+On first run Sussurro creates `~/.sussurro/config.yaml` and offers to download the required models into `~/.sussurro/models`.
 
-```bash
-./scripts/download-models.sh
-```
-
-This script downloads:
-*   **Whisper Small**: For ASR.
-*   **Qwen 3 1.7B (Q4_K_M)**: For text cleanup.
+If you skip the download you can place the files manually and update the paths in `~/.sussurro/config.yaml`.
 
 ## Running
 

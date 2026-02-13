@@ -61,11 +61,11 @@ func LoadConfig(path string) (*Config, error) {
 		viper.SetConfigFile(path)
 	} else {
 		// Otherwise search in default locations
-		viper.SetConfigName("default")
+		viper.SetConfigName("config") // Look for config.yaml (or .json, .toml)
 		viper.SetConfigType("yaml")
 		viper.AddConfigPath(".")
-		viper.AddConfigPath("./configs")
 		viper.AddConfigPath("$HOME/.sussurro")
+		viper.AddConfigPath("./configs")
 	}
 
 	viper.SetEnvPrefix("SUSSURRO")
@@ -73,7 +73,15 @@ func LoadConfig(path string) (*Config, error) {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, err
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Try fallback to "default" (old behavior)
+			viper.SetConfigName("default")
+			if err := viper.ReadInConfig(); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	var cfg Config

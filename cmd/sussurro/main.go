@@ -16,6 +16,7 @@ import (
 	"github.com/cesp99/sussurro/internal/llm"
 	"github.com/cesp99/sussurro/internal/logger"
 	"github.com/cesp99/sussurro/internal/pipeline"
+	"github.com/cesp99/sussurro/internal/setup"
 
 	"golang.design/x/hotkey/mainthread"
 )
@@ -28,6 +29,12 @@ func run() {
 	// Parse command line flags
 	configPath := flag.String("config", "", "Path to configuration file")
 	flag.Parse()
+
+	// Ensure Setup (First Run Experience)
+	if err := setup.EnsureSetup(); err != nil {
+		fmt.Printf("Setup failed: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Load Configuration
 	cfg, err := config.LoadConfig(*configPath)
