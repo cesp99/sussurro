@@ -13,6 +13,13 @@ fi
 
 echo "Patching whisper.cpp to rename ggml and gguf symbols..."
 
+# Detect OS for sed syntax (macOS requires -i '', Linux requires -i)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    SED_INPLACE="sed -i ''"
+else
+    SED_INPLACE="sed -i"
+fi
+
 # 1. Rename symbols in C/C++/Go/CMake files
 # We replace:
 # ggml_ -> wsp_ggml_
@@ -20,7 +27,7 @@ echo "Patching whisper.cpp to rename ggml and gguf symbols..."
 # gguf_ -> wsp_gguf_
 # GGUF_ -> WSP_GGUF_
 # quantize_row_ -> wsp_quantize_row_ (and related functions)
-find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.cu" -o -name "*.m" -o -name "*.go" -o -name "*.metal" -o -name "CMakeLists.txt" -o -name "*.cmake" \) -not -path "*/.git/*" -print0 | xargs -0 sed -i '' \
+find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.cu" -o -name "*.m" -o -name "*.go" -o -name "*.metal" -o -name "CMakeLists.txt" -o -name "*.cmake" \) -not -path "*/.git/*" -print0 | xargs -0 $SED_INPLACE \
     -e 's/ggml_/wsp_ggml_/g' \
     -e 's/GGML_/WSP_GGML_/g' \
     -e 's/gguf_/wsp_gguf_/g' \
@@ -39,7 +46,7 @@ find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -n
 # 2. Revert changes to #include directives
 # Since we didn't rename the actual files (e.g. ggml.h is still ggml.h),
 # we must revert #include "wsp_ggml.h" back to #include "ggml.h"
-find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.cu" -o -name "*.m" -o -name "*.go" \) -not -path "*/.git/*" -print0 | xargs -0 sed -i '' \
+find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.cu" -o -name "*.m" -o -name "*.go" \) -not -path "*/.git/*" -print0 | xargs -0 $SED_INPLACE \
     -e 's/#include "wsp_ggml/#include "ggml/g' \
     -e 's/#include <wsp_ggml/#include <ggml/g' \
     -e 's/#include "wsp_gguf/#include "gguf/g' \
@@ -47,23 +54,23 @@ find "$WHISPER_DIR" -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -n
 
 # 3. Fix specific include path for ggml-metal-device.h which fails to find ggml.h
 if [ -f "$WHISPER_DIR/ggml/src/ggml-metal/ggml-metal-device.h" ]; then
-    sed -i '' 's/#include "ggml.h"/#include "..\/..\/include\/ggml.h"/g' "$WHISPER_DIR/ggml/src/ggml-metal/ggml-metal-device.h"
+    $SED_INPLACE 's/#include "ggml.h"/#include "..\/..\/include\/ggml.h"/g' "$WHISPER_DIR/ggml/src/ggml-metal/ggml-metal-device.h"
 fi
 
 # 4. Fix specific include path for ggml-impl.h which fails to find ggml.h and gguf.h
 if [ -f "$WHISPER_DIR/ggml/src/ggml-impl.h" ]; then
-    sed -i '' 's/#include "ggml.h"/#include "..\/include\/ggml.h"/g' "$WHISPER_DIR/ggml/src/ggml-impl.h"
-    sed -i '' 's/#include "gguf.h"/#include "..\/include\/gguf.h"/g' "$WHISPER_DIR/ggml/src/ggml-impl.h"
+    $SED_INPLACE 's/#include "ggml.h"/#include "..\/include\/ggml.h"/g' "$WHISPER_DIR/ggml/src/ggml-impl.h"
+    $SED_INPLACE 's/#include "gguf.h"/#include "..\/include\/gguf.h"/g' "$WHISPER_DIR/ggml/src/ggml-impl.h"
 fi
 
 # 5. Fix specific include path for ggml-backend-impl.h which fails to find ggml-backend.h
 if [ -f "$WHISPER_DIR/ggml/src/ggml-backend-impl.h" ]; then
-    sed -i '' 's/#include "ggml-backend.h"/#include "..\/include\/ggml-backend.h"/g' "$WHISPER_DIR/ggml/src/ggml-backend-impl.h"
+    $SED_INPLACE 's/#include "ggml-backend.h"/#include "..\/include\/ggml-backend.h"/g' "$WHISPER_DIR/ggml/src/ggml-backend-impl.h"
 fi
 
 # 6. Fix Mach-O section name length error in ggml-metal/CMakeLists.txt
 if [ -f "$WHISPER_DIR/ggml/src/ggml-metal/CMakeLists.txt" ]; then
-    sed -i '' 's/__wsp_ggml_metallib/__wsp_ggml_mtl/g' "$WHISPER_DIR/ggml/src/ggml-metal/CMakeLists.txt"
+    $SED_INPLACE 's/__wsp_ggml_metallib/__wsp_ggml_mtl/g' "$WHISPER_DIR/ggml/src/ggml-metal/CMakeLists.txt"
 fi
 
 echo "Patch applied successfully."

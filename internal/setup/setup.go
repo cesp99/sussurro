@@ -13,8 +13,7 @@ import (
 const (
 	defaultConfigTemplate = `app:
   name: "Sussurro"
-  version: "0.1.0"
-  debug: true
+  debug: false
   log_level: "info" # debug, info, warn, error
 
 audio:

@@ -31,3 +31,4 @@ models/
 # Logs
 *.log
 /sussurro
+/release

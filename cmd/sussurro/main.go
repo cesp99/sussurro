@@ -17,6 +17,7 @@ import (
 	"github.com/cesp99/sussurro/internal/logger"
 	"github.com/cesp99/sussurro/internal/pipeline"
 	"github.com/cesp99/sussurro/internal/setup"
+	"github.com/cesp99/sussurro/internal/trigger"
 	"github.com/cesp99/sussurro/internal/version"
 
 	"golang.design/x/hotkey/mainthread"
@@ -61,7 +62,7 @@ func run() {
 	}
 
 	// Initialize Context Provider
-	ctxProvider := context.NewMacOSProvider()
+	ctxProvider := context.NewProvider()
 	defer ctxProvider.Close()
 
 	// Initialize Audio Capture
@@ -111,33 +112,64 @@ func run() {
 	}
 	defer pipe.Stop()
 
-	// Initialize Hotkey Handler
-	hkHandler, err := hotkey.NewHandler(cfg.Hotkey.Trigger, log)
-	if err != nil {
-		log.Error("Failed to initialize hotkey handler", "error", err)
-		os.Exit(1)
+	// Initialize input handler (hotkey or trigger server depending on environment)
+	if hotkey.IsWayland() {
+		log.Debug("Wayland detected - using trigger server")
+
+		triggerServer, err := trigger.NewServer(log)
+		if err != nil {
+			log.Error("Failed to initialize trigger server", "error", err)
+			os.Exit(1)
+		}
+		defer triggerServer.Stop()
+
+		err = triggerServer.Start(
+			func() { // On trigger start
+				log.Debug("Trigger: Starting recording")
+				pipe.StartRecording()
+			},
+			func() { // On trigger stop
+				log.Debug("Trigger: Stopping recording")
+				if !pipe.StopRecording() {
+					log.Debug("Recording was not active or already stopped")
+				}
+			},
+		)
+		if err != nil {
+			log.Error("Failed to start trigger server", "error", err)
+			os.Exit(1)
+		}
+
+		log.Warn("Wayland detected: Configure keyboard shortcut (see docs/WAYLAND.md)")
+	} else {
+		log.Info("X11 detected - using global hotkeys")
+
+		hkHandler, err := hotkey.NewHandler(cfg.Hotkey.Trigger, log)
+		if err != nil {
+			log.Error("Failed to initialize hotkey handler", "error", err)
+			os.Exit(1)
+		}
+		defer hkHandler.Unregister()
+
+		err = hkHandler.Register(
+			func() { // On Key Down
+				log.Debug("Hotkey pressed: Starting recording")
+				pipe.StartRecording()
+			},
+			func() { // On Key Up
+				log.Debug("Hotkey released: Stopping recording")
+				if !pipe.StopRecording() {
+					log.Debug("Recording was not active or already stopped")
+				}
+			},
+		)
+		if err != nil {
+			log.Error("Failed to register hotkey", "error", err)
+			os.Exit(1)
+		}
 	}
 
-	// Register Hotkey Callbacks
-	err = hkHandler.Register(
-		func() { // On Key Down
-			log.Debug("Hotkey pressed: Starting recording")
-			pipe.StartRecording()
-		},
-		func() { // On Key Up
-			log.Debug("Hotkey released: Stopping recording")
-			if !pipe.StopRecording() {
-				log.Debug("Recording was not active or already stopped")
-			}
-		},
-	)
-	if err != nil {
-		log.Error("Failed to register hotkey", "error", err)
-		os.Exit(1)
-	}
-	defer hkHandler.Unregister()
-
-	log.Info("Sussurro backend running. Press Ctrl+C to exit.")
+	log.Info("Sussurro running. Press Ctrl+C to exit.")
 
 	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)

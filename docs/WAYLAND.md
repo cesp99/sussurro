@@ -1,0 +1,121 @@
+# Wayland Setup Guide
+
+Wayland does not support global hotkeys due to its security model. This guide shows you how to set up Sussurro on Wayland using your desktop environment's keyboard shortcuts.
+
+## Am I on Wayland?
+
+Check with:
+```bash
+echo $XDG_SESSION_TYPE
+```
+If it says `wayland`, follow this guide. If it says `x11`, you don't need this - hotkeys work automatically.
+
+## Prerequisites
+
+**BEFORE running Sussurro**, install the clipboard manager:
+
+```bash
+# Arch/Manjaro
+sudo pacman -S wl-clipboard
+
+# Ubuntu/Debian
+sudo apt install wl-clipboard
+
+# Fedora
+sudo dnf install wl-clipboard
+
+# openSUSE
+sudo zypper install wl-clipboard
+```
+
+Without this, Sussurro will fail to inject text.
+
+See [DEPENDENCIES.md](DEPENDENCIES.md) for other optional packages.
+
+## One-Time Setup
+
+### Option 1: Using the Helper Script (Recommended)
+
+1. Open your desktop environment's keyboard settings
+2. Add a custom keyboard shortcut
+3. Set the shortcut key: `Ctrl+Shift+Space`
+4. Set the command to: `/path/to/sussurro/scripts/trigger.sh`
+
+### Option 2: Direct Socket Command
+
+If you prefer not to use the script:
+
+1. Open your desktop environment's keyboard settings
+2. Add a custom keyboard shortcut
+3. Set the shortcut key: `Ctrl+Shift+Space`
+4. Set the command to: `sh -c 'echo toggle | nc -U $XDG_RUNTIME_DIR/sussurro.sock'`
+
+## Desktop Environment Specific Instructions
+
+### GNOME (Settings)
+
+1. Open **Settings** → **Keyboard** → **Keyboard Shortcuts**
+2. Scroll down and click **"View and Customize Shortcuts"**
+3. Click **"Custom Shortcuts"** at the bottom
+4. Click the **"+"** button to add a new shortcut
+5. Name: `Sussurro Voice Input`
+6. Command: `/path/to/sussurro/scripts/trigger.sh`
+7. Click **"Set Shortcut"** and press `Ctrl+Shift+Space`
+8. Click **"Add"**
+
+### KDE Plasma (System Settings)
+
+1. Open **System Settings** → **Shortcuts**
+2. Click **"Custom Shortcuts"** in the left panel
+3. Right-click in the empty area → **"New"** → **"Global Shortcut"** → **"Command/URL"**
+4. In the **"Trigger"** tab, click the button and press `Ctrl+Shift+Space`
+5. In the **"Action"** tab, enter: `/path/to/sussurro/scripts/trigger.sh`
+6. Click **"Apply"**
+
+### Sway (i3-like Wayland compositor)
+
+Add to your `~/.config/sway/config`:
+
+```
+bindsym Ctrl+Shift+Space exec /path/to/sussurro/scripts/trigger.sh
+```
+
+Then reload Sway: `swaymsg reload`
+
+### Hyprland
+
+Add to your `~/.config/hypr/hyprland.conf`:
+
+```
+bind = CTRL SHIFT, Space, exec, /path/to/sussurro/scripts/trigger.sh
+```
+
+Then reload: `hyprctl reload`
+
+## How to Use
+
+After setup, the workflow is simple:
+
+1. **Press** `Ctrl+Shift+Space` → Recording starts
+2. **Speak** your text
+3. **Press** `Ctrl+Shift+Space` again → Recording stops and processes
+4. Text appears in your active application
+
+## Troubleshooting
+
+### "Connection refused" or socket errors
+
+Make sure Sussurro is running before pressing the hotkey.
+
+### No response when pressing hotkey
+
+1. Check if the keyboard shortcut is properly configured in your DE
+2. Test the command manually in a terminal:
+   ```bash
+   echo toggle | nc -U $XDG_RUNTIME_DIR/sussurro.sock
+   ```
+3. Check Sussurro logs for errors
+
+### Want to use X11 instead?
+
+Log out of your session and select an X11 session at the login screen. Sussurro will automatically use native global hotkeys on X11.

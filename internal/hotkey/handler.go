@@ -10,25 +10,35 @@ import (
 
 // Handler manages global hotkeys
 type Handler struct {
-	hk  *hotkey.Hotkey
-	log *slog.Logger
-	
+	hk   *hotkey.Hotkey
+	log  *slog.Logger
+	done chan struct{}
+
 	onKeyDown func()
 	onKeyUp   func()
 }
 
 // NewHandler creates a new hotkey handler
 func NewHandler(trigger string, log *slog.Logger) (*Handler, error) {
+	// Check if we're on Wayland
+	if IsWayland() {
+		log.Error("Wayland detected: Global hotkeys are not supported")
+		log.Error("Solution 1: Log out and select an X11 session instead")
+		log.Error("Solution 2: Configure your desktop environment to bind Ctrl+Shift+Space to trigger recording")
+		return nil, fmt.Errorf("global hotkeys require X11 - Wayland does not support them")
+	}
+
 	mods, key, err := parseTrigger(trigger)
 	if err != nil {
 		return nil, err
 	}
 
 	hk := hotkey.New(mods, key)
-	
+
 	return &Handler{
-		hk:  hk,
-		log: log,
+		hk:   hk,
+		log:  log,
+		done: make(chan struct{}),
 	}, nil
 }
 
@@ -47,14 +57,18 @@ func (h *Handler) Register(onKeyDown, onKeyUp func()) error {
 	return nil
 }
 
-// Unregister unregisters the hotkey
+// Unregister unregisters the hotkey and stops the listener
 func (h *Handler) Unregister() {
+	close(h.done)
 	h.hk.Unregister()
 }
 
 func (h *Handler) listen() {
 	for {
 		select {
+		case <-h.done:
+			h.log.Debug("Hotkey listener stopping")
+			return
 		case <-h.hk.Keydown():
 			h.log.Debug("Hotkey pressed")
 			if h.onKeyDown != nil {
@@ -95,18 +109,11 @@ func parseTrigger(trigger string) ([]hotkey.Modifier, hotkey.Key, error) {
 		}
 
 		// Modifiers
-		switch part {
-		case "ctrl", "control":
-			mods = append(mods, hotkey.ModCtrl)
-		case "shift":
-			mods = append(mods, hotkey.ModShift)
-		case "alt", "option":
-			mods = append(mods, hotkey.ModOption)
-		case "cmd", "command":
-			mods = append(mods, hotkey.ModCmd)
-		default:
-			return nil, 0, fmt.Errorf("unknown modifier: %s", part)
+		mod, err := parseModifier(part)
+		if err != nil {
+			return nil, 0, err
 		}
+		mods = append(mods, mod)
 	}
 
 	return mods, key, nil

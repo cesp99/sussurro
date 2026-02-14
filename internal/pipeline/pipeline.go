@@ -74,7 +74,7 @@ func (p *Pipeline) SetOnCompletion(callback func()) {
 
 // Start begins the pipeline processing
 func (p *Pipeline) Start() error {
-	p.log.Info("Starting pipeline...")
+	p.log.Debug("Starting pipeline")
 
 	// Start Audio Capture Loop (runs continuously to keep device ready)
 	p.wg.Add(1)
@@ -85,10 +85,10 @@ func (p *Pipeline) Start() error {
 
 // Stop gracefully shuts down the pipeline
 func (p *Pipeline) Stop() {
-	p.log.Info("Stopping pipeline...")
+	p.log.Debug("Stopping pipeline")
 	close(p.stopChan)
 	p.wg.Wait()
-	p.log.Info("Pipeline stopped")
+	p.log.Debug("Pipeline stopped")
 }
 
 // StartRecording begins accumulating audio data
@@ -107,7 +107,7 @@ func (p *Pipeline) StartRecording() {
 
 	p.isRecording = true
 	p.audioBuffer = nil // Clear buffer
-	p.log.Info("Recording started")
+	p.log.Debug("Recording started")
 }
 
 // StopRecording stops accumulating and triggers processing
@@ -121,7 +121,7 @@ func (p *Pipeline) StopRecording() bool {
 	}
 
 	p.isRecording = false
-	p.log.Info("Recording stopped", "buffer_size", len(p.audioBuffer))
+	p.log.Debug("Recording stopped", "buffer_size", len(p.audioBuffer))
 
 	// Process the captured audio in a separate goroutine to not block
 	// Make a copy of the buffer
@@ -149,7 +149,7 @@ func (p *Pipeline) captureLoop() {
 	var maxSamples int
 	if strings.ToLower(p.maxDuration) == "infinite" || p.maxDuration == "0" {
 		maxSamples = 1<<31 - 1 // Effectively infinite
-		p.log.Info("Max recording duration set to infinite")
+		p.log.Debug("Max recording duration set to infinite")
 	} else {
 		// Default to 30s if not specified or invalid
 		durationStr := p.maxDuration
@@ -163,7 +163,7 @@ func (p *Pipeline) captureLoop() {
 			d = 30 * time.Second
 		}
 		maxSamples = int(float64(d.Seconds()) * float64(p.vadParams.SampleRate))
-		p.log.Info("Max recording duration set", "duration", d, "max_samples", maxSamples)
+		p.log.Debug("Max recording duration set", "duration", d, "max_samples", maxSamples)
 	}
 
 	for {
@@ -214,10 +214,10 @@ func (p *Pipeline) processSegment(samples []float32) {
 	// Check duration (SampleRate is typically 16000)
 	// If recording is less than 2 seconds, skip transcription
 	durationSeconds := float64(len(samples)) / float64(p.vadParams.SampleRate)
-	p.log.Info("Processing segment", "samples", len(samples), "rate", p.vadParams.SampleRate, "duration", durationSeconds)
+	p.log.Debug("Processing segment", "samples", len(samples), "rate", p.vadParams.SampleRate, "duration", durationSeconds)
 
 	if durationSeconds < 2.0 {
-		p.log.Info("Recording too short (< 2s), skipping transcription", "duration", durationSeconds)
+		p.log.Debug("Recording too short (< 2s), skipping transcription", "duration", durationSeconds)
 		return
 	}
 
@@ -235,12 +235,12 @@ func (p *Pipeline) processSegment(samples []float32) {
 	// We do this after transcription as we need the text to count words
 	words := strings.Fields(text)
 	if len(words) < 4 {
-		p.log.Info("Transcription too short (< 4 words), ignoring", "text", text, "word_count", len(words))
+		p.log.Debug("Transcription too short (< 4 words), ignoring", "text", text, "word_count", len(words))
 		return
 	}
 
 	if strings.TrimSpace(text) == "" {
-		p.log.Info("No speech detected")
+		p.log.Debug("No speech detected")
 		return
 	}
 
