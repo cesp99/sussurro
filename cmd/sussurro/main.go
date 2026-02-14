@@ -153,11 +153,11 @@ func run() {
 
 		err = hkHandler.Register(
 			func() { // On Key Down
-				log.Debug("Hotkey pressed: Starting recording")
+				log.Info("Listening...")
 				pipe.StartRecording()
 			},
 			func() { // On Key Up
-				log.Debug("Hotkey released: Stopping recording")
+				log.Info("Transcribing...")
 				if !pipe.StopRecording() {
 					log.Debug("Recording was not active or already stopped")
 				}
