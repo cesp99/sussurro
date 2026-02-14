@@ -24,11 +24,7 @@ func Init(level string) *slog.Logger {
 		Level: lvl,
 	}
 
-	// Use JSON handler for structured logging, good for production/parsing
-	// For local development, TextHandler might be easier to read, but JSON is safer generally.
-	// Given this is a desktop app, maybe TextHandler is better for stdout debugging?
-	// I'll stick to JSON for now as it's "infrastructure".
-	handler := slog.NewJSONHandler(os.Stdout, opts)
+	handler := slog.NewTextHandler(os.Stdout, opts)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 

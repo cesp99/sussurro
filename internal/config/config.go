@@ -16,7 +16,6 @@ type Config struct {
 
 type AppConfig struct {
 	Name     string `mapstructure:"name"`
-	Version  string `mapstructure:"version"`
 	Debug    bool   `mapstructure:"debug"`
 	LogLevel string `mapstructure:"log_level"`
 }

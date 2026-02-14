@@ -23,7 +23,6 @@ The repo also includes `configs/default.yaml` with the same keys. It is a fallba
 ```yaml
 app:
   name: "Sussurro"
-  version: "0.1.0"
   debug: true        # Enable verbose logging
   log_level: "info"  # debug, info, warn, error
 ```
@@ -35,7 +34,7 @@ audio:
   channels: 1        # Mono audio
   bit_depth: 16
   buffer_size: 1024
-  max_duration: "60s" # Maximum recording time
+  max_duration: "60s" # Maximum recording time (default: 60s, 0 for no limit)
 ```
 
 ### Model Settings

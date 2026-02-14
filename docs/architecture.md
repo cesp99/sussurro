@@ -6,11 +6,11 @@ Sussurro is designed as a modular pipeline that processes audio input into refin
 
 The data flow follows this sequence:
 
-1.  **Hotkey Trigger**: User presses the configured hotkey (default: `Ctrl+Space`).
+1.  **Hotkey Trigger**: User presses the configured hotkey (default: `Ctrl+Shift+Space`).
 2.  **Audio Capture**: Microphone input is recorded until the hotkey is released or silence is detected.
 3.  **ASR (Automatic Speech Recognition)**: Raw audio is converted to text using **Whisper.cpp**.
 4.  **LLM Cleanup**: The raw transcription is processed by a Large Language Model (**Qwen 3**) to remove artifacts, filler words, and apply grammar corrections.
-5.  **Text Injection**: The cleaned text is simulated as keyboard input into the active application.
+5.  **Clipboard and Text Injection**: The cleaned text is written to the clipboard and pasted into the active application.
 
 ---
 
@@ -42,6 +42,9 @@ The data flow follows this sequence:
 - **Platform**: Currently specialized for macOS (using Accessibility APIs via JXA/AppleScript or native calls).
 - **Usage**: Can be used to tailor prompts based on the app (e.g., "Code mode" for VS Code vs. "Email mode" for Mail).
 
-### 5. Input Injector (`internal/injection`)
+### 5. Clipboard (`internal/clipboard`)
+- **Role**: Stores the cleaned text so it can be pasted reliably.
+
+### 6. Input Injector (`internal/injection`)
 - **Library**: `github.com/micmonay/keybd_event`.
-- **Role**: Simulates keystrokes to "type" the final text into the active text field.
+- **Role**: Triggers the paste shortcut to insert the final text.

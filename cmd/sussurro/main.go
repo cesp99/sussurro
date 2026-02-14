@@ -17,6 +17,7 @@ import (
 	"github.com/cesp99/sussurro/internal/logger"
 	"github.com/cesp99/sussurro/internal/pipeline"
 	"github.com/cesp99/sussurro/internal/setup"
+	"github.com/cesp99/sussurro/internal/version"
 
 	"golang.design/x/hotkey/mainthread"
 )
@@ -45,7 +46,7 @@ func run() {
 
 	// Initialize Logger
 	log := logger.Init(cfg.App.LogLevel)
-	log.Info("Starting Sussurro CLI", "version", cfg.App.Version)
+	log.Info("Starting Sussurro CLI", "version", version.Version)
 
 	// Check if models exist
 	if _, err := os.Stat(cfg.Models.ASR.Path); os.IsNotExist(err) {
@@ -72,7 +73,7 @@ func run() {
 	defer audioEngine.Close()
 
 	// Initialize ASR Engine
-	asrEngine, err := asr.NewEngine(cfg.Models.ASR.Path, cfg.Models.ASR.Threads)
+	asrEngine, err := asr.NewEngine(cfg.Models.ASR.Path, cfg.Models.ASR.Threads, cfg.App.Debug)
 	if err != nil {
 		log.Error("Failed to initialize ASR engine", "error", err)
 		os.Exit(1)
@@ -80,7 +81,7 @@ func run() {
 	defer asrEngine.Close()
 
 	// Initialize LLM Engine
-	llmEngine, err := llm.NewEngine(cfg.Models.LLM.Path, cfg.Models.LLM.Threads, cfg.Models.LLM.ContextSize, cfg.Models.LLM.GpuLayers)
+	llmEngine, err := llm.NewEngine(cfg.Models.LLM.Path, cfg.Models.LLM.Threads, cfg.Models.LLM.ContextSize, cfg.Models.LLM.GpuLayers, cfg.App.Debug)
 	if err != nil {
 		log.Error("Failed to initialize LLM engine", "error", err)
 		os.Exit(1)

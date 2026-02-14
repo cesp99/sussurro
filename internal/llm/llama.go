@@ -7,18 +7,25 @@ import (
 	"strings"
 
 	llama "github.com/AshkanYarmoradi/go-llama.cpp"
+	"github.com/cesp99/sussurro/internal/logger"
 )
 
 // Engine handles the LLM model and text generation
 type Engine struct {
 	model   *llama.LLama
 	threads int
+	debug   bool
 }
 
 // NewEngine initializes the LLM model from a file path
-func NewEngine(modelPath string, threads int, contextSize int, gpuLayers int) (*Engine, error) {
+func NewEngine(modelPath string, threads int, contextSize int, gpuLayers int, debug bool) (*Engine, error) {
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("model file not found at %s: %w", modelPath, err)
+	}
+
+	if !debug {
+		cleanup := logger.SuppressStderr()
+		defer cleanup()
 	}
 
 	model, err := llama.New(
@@ -26,6 +33,7 @@ func NewEngine(modelPath string, threads int, contextSize int, gpuLayers int) (*
 		llama.SetContext(contextSize),
 		llama.SetGPULayers(gpuLayers),
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to load llm model: %w", err)
 	}
@@ -33,6 +41,7 @@ func NewEngine(modelPath string, threads int, contextSize int, gpuLayers int) (*
 	return &Engine{
 		model:   model,
 		threads: threads,
+		debug:   debug,
 	}, nil
 }
 
@@ -58,13 +67,22 @@ Output only the corrected text with no preamble, labels, or explanations.
 `, rawText)
 
 	// We use Predict with strict options
-	cleaned, err := e.model.Predict(prompt,
+	var cleaned string
+	var err error
+
+	if !e.debug {
+		cleanup := logger.SuppressStderr()
+		defer cleanup()
+	}
+
+	cleaned, err = e.model.Predict(prompt,
 		llama.SetTokens(0),
 		llama.SetThreads(e.threads),
 		llama.SetTemperature(0.1), // Low temperature for deterministic output
 		llama.SetTopP(0.9),
 		llama.SetStopWords("<|im_end|>"),
 	)
+
 	if err != nil {
 		return "", fmt.Errorf("prediction failed: %w", err)
 	}

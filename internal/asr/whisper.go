@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/cesp99/sussurro/internal/logger"
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 )
 
@@ -13,12 +14,18 @@ type Engine struct {
 	model   whisper.Model
 	context whisper.Context
 	mutex   sync.Mutex
+	debug   bool
 }
 
 // NewEngine initializes the Whisper model from a file path
-func NewEngine(modelPath string, threads int) (*Engine, error) {
+func NewEngine(modelPath string, threads int, debug bool) (*Engine, error) {
 	if _, err := os.Stat(modelPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("model file not found at %s: %w", modelPath, err)
+	}
+
+	if !debug {
+		cleanup := logger.SuppressStderr()
+		defer cleanup()
 	}
 
 	model, err := whisper.New(modelPath)
@@ -34,6 +41,7 @@ func NewEngine(modelPath string, threads int) (*Engine, error) {
 	return &Engine{
 		model:   model,
 		context: ctx,
+		debug:   debug,
 	}, nil
 }
 
@@ -44,6 +52,11 @@ func (e *Engine) Transcribe(samples []float32) (string, error) {
 
 	if len(samples) == 0 {
 		return "", nil
+	}
+
+	if !e.debug {
+		cleanup := logger.SuppressStderr()
+		defer cleanup()
 	}
 
 	if err := e.context.Process(samples, nil, nil, nil); err != nil {
