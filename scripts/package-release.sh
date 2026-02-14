@@ -75,8 +75,12 @@ Full documentation: https://github.com/cesp99/sussurro
 Quick Start Guide: https://github.com/cesp99/sussurro/blob/master/docs/QUICKSTART.md
 EOF
 
-# Replace version placeholder
-sed -i "s/\${VERSION}/${VERSION}/g" "${RELEASE_DIR}/INSTALL.txt"
+# Replace version placeholder (compatible with both GNU and BSD sed)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    sed -i '' "s/\${VERSION}/${VERSION}/g" "${RELEASE_DIR}/INSTALL.txt"
+else
+    sed -i "s/\${VERSION}/${VERSION}/g" "${RELEASE_DIR}/INSTALL.txt"
+fi
 
 # Create tarball
 echo "Creating tarball..."
@@ -87,7 +91,13 @@ cd ..
 # Create checksum
 echo "Generating checksum..."
 cd release
-sha256sum "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.tar.gz.sha256"
+if command -v sha256sum &> /dev/null; then
+    sha256sum "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.tar.gz.sha256"
+elif command -v shasum &> /dev/null; then
+    shasum -a 256 "${RELEASE_NAME}.tar.gz" > "${RELEASE_NAME}.tar.gz.sha256"
+else
+    echo "Warning: sha256sum or shasum not found. Skipping checksum generation."
+fi
 cd ..
 
 echo ""
