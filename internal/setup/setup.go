@@ -40,10 +40,12 @@ hotkey:
 injection:
   method: "keyboard"
 `
-	// Whisper Small model (approx 500MB)
-	urlASR = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
-	// Qwen 3 1.7B GGUF (approx 1GB+)
-	urlLLM = "https://huggingface.co/enacimie/Qwen3-1.7B-Q4_K_M-GGUF/resolve/main/qwen3-1.7b-q4_k_m.gguf"
+	// Whisper Small model
+	urlASR     = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+	sizeASR    = "488 MB"
+	// Qwen 3 Sussurro GGUF
+	urlLLM     = "https://huggingface.co/cesp99/qwen3-sussurro/resolve/main/qwen3-sussurro-q4_k_m.gguf"
+	sizeLLM    = "1.28 GB"
 )
 
 // EnsureSetup checks for the necessary configuration and models,
@@ -77,7 +79,7 @@ func EnsureSetup() error {
 		fmt.Println("Creating default configuration file...")
 
 		asrPath := filepath.Join(modelsDir, "ggml-small.bin")
-		llmPath := filepath.Join(modelsDir, "qwen3-1.7b-q4_k_m.gguf")
+		llmPath := filepath.Join(modelsDir, "qwen3-sussurro-q4_k_m.gguf")
 
 		configContent := strings.ReplaceAll(defaultConfigTemplate, "{{ASR_PATH}}", asrPath)
 		configContent = strings.ReplaceAll(configContent, "{{LLM_PATH}}", llmPath)
@@ -88,10 +90,65 @@ func EnsureSetup() error {
 		fmt.Printf("Configuration saved to %s\n", configFile)
 	}
 
-	// 3. Check for models and prompt to download
+	// 3. Check for old model files from versions before v1.3
 	asrPath := filepath.Join(modelsDir, "ggml-small.bin")
-	llmPath := filepath.Join(modelsDir, "qwen3-1.7b-q4_k_m.gguf")
+	llmPath := filepath.Join(modelsDir, "qwen3-sussurro-q4_k_m.gguf")
 
+	// Check for any .gguf file that isn't the new model (indicates old version)
+	entries, err := os.ReadDir(modelsDir)
+	if err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			filename := entry.Name()
+			// If it's a .gguf file but NOT the new sussurro model, it's an old model
+			if strings.HasSuffix(filename, ".gguf") && filename != "qwen3-sussurro-q4_k_m.gguf" {
+				oldModelPath := filepath.Join(modelsDir, filename)
+				fmt.Println("\n========================================")
+				fmt.Println("  OLD MODEL DETECTED - UPDATE REQUIRED")
+				fmt.Println("========================================")
+				fmt.Printf("Found old model from version < v1.3: %s\n", filename)
+				fmt.Println("\nSussurro v1.3+ uses a new fine-tuned model: Qwen 3 Sussurro")
+				fmt.Println("The new model provides better transcription cleanup and accuracy.")
+				fmt.Printf("\nOld model location: %s\n", oldModelPath)
+				fmt.Printf("New model size: %s\n", sizeLLM)
+				fmt.Print("\nWould you like to remove the old model and download the new one? (Y/n): ")
+
+				reader := bufio.NewReader(os.Stdin)
+				response, _ := reader.ReadString('\n')
+				response = strings.TrimSpace(strings.ToLower(response))
+
+				if response == "" || response == "y" || response == "yes" {
+					fmt.Printf("Removing old model: %s\n", filename)
+					if err := os.Remove(oldModelPath); err != nil {
+						fmt.Printf("Warning: Could not remove old model: %v\n", err)
+					} else {
+						fmt.Println("Old model removed successfully.")
+					}
+
+					// Update config file to point to new model
+					fmt.Println("Updating configuration file...")
+					configContent, err := os.ReadFile(configFile)
+					if err == nil {
+						// Replace old model path with new one
+						oldPathInConfig := filepath.Join(modelsDir, filename)
+						newPathInConfig := llmPath
+						updatedConfig := strings.ReplaceAll(string(configContent), oldPathInConfig, newPathInConfig)
+
+						if err := os.WriteFile(configFile, []byte(updatedConfig), 0644); err != nil {
+							fmt.Printf("Warning: Could not update config file: %v\n", err)
+						} else {
+							fmt.Println("Configuration updated successfully.")
+						}
+					}
+				}
+				break // Only prompt once even if multiple old models exist
+			}
+		}
+	}
+
+	// 4. Check for models and prompt to download
 	missingASR := false
 	missingLLM := false
 
@@ -105,13 +162,22 @@ func EnsureSetup() error {
 	if missingASR || missingLLM {
 		fmt.Println("\nMissing model files:")
 		if missingASR {
-			fmt.Printf(" - Whisper Model (ASR): %s\n", asrPath)
+			fmt.Printf(" - Whisper Model (ASR): %s (%s)\n", asrPath, sizeASR)
 		}
 		if missingLLM {
-			fmt.Printf(" - LLM Model: %s\n", llmPath)
+			fmt.Printf(" - LLM Model (Qwen 3 Sussurro): %s (%s)\n", llmPath, sizeLLM)
 		}
 
-		fmt.Print("\nWould you like to download them now? (Y/n): ")
+		totalSize := ""
+		if missingASR && missingLLM {
+			totalSize = " (Total: ~1.77 GB)"
+		} else if missingASR {
+			totalSize = fmt.Sprintf(" (Total: %s)", sizeASR)
+		} else {
+			totalSize = fmt.Sprintf(" (Total: %s)", sizeLLM)
+		}
+
+		fmt.Printf("\nWould you like to download them now?%s (Y/n): ", totalSize)
 		reader := bufio.NewReader(os.Stdin)
 		response, _ := reader.ReadString('\n')
 		response = strings.TrimSpace(strings.ToLower(response))

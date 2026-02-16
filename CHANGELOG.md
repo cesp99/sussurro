@@ -2,6 +2,15 @@
 
 All notable changes to Sussurro will be documented in this file.
 
+## [1.3] - 2026-02-16
+
+### Changed
+- **Upgraded LLM model** from Qwen 3 base to fine-tuned **Qwen 3 Sussurro**
+- Model now hosted at https://huggingface.co/cesp99/qwen3-sussurro
+- Improved transcription cleanup and accuracy with domain-specific training
+- Automatic detection and migration for users upgrading from versions < v1.3
+- Setup now displays file sizes for model downloads (Whisper: 488 MB, LLM: 1.28 GB)
+
 ## [1.2] - 2026-02-14
 
 ### Added

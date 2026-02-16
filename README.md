@@ -1,6 +1,6 @@
 # Sussurro
 
-[![Version 1.2](https://img.shields.io/badge/Version-1.2-black?style=flat)](https://github.com/cesp99/sussurro/releases)
+[![Version 1.3](https://img.shields.io/badge/Version-1.3-black?style=flat)](https://github.com/cesp99/sussurro/releases)
 [![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-black?style=flat)](LICENSE)
 [![Go 1.24+](https://img.shields.io/badge/Go-1.24+-black?style=flat&logo=go&logoColor=white)](https://golang.org)
 [![Linux](https://img.shields.io/badge/Linux-black?style=flat&logo=linux&logoColor=white)](https://github.com/cesp99/sussurro)
@@ -8,13 +8,13 @@
 
 Sussurro is a fully local, open-source, cross-platform CLI voice-to-text system that acts as a system-wide AI dictation layer. It transforms speech into clean, formatted, context-aware text injected into any application.
 
-**New to Sussurro?** Start with the [Quick Start Guide](docs/QUICKSTART.md) to get running in under 5 minutes.
+**New to Sussurro?** Start with the [Quick Start Guide](docs/quickstart.md) to get running in under 5 minutes.
 
 ## Overview
 
 Sussurro uses local AI models to ensure privacy and low latency. It combines:
 - **Whisper.cpp** for automatic speech recognition (ASR).
-- **LLMs (Qwen 3)** for intelligent text cleanup, removing filler words, and fixing grammar errors.
+- **LLMs (Qwen 3 Sussurro)** for intelligent text cleanup, removing filler words, and fixing grammar errors.
 
 ## Features
 
@@ -30,9 +30,9 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
 
 ## Documentation
 
-*   [**Quick Start**](docs/QUICKSTART.md): Get up and running in under 5 minutes (recommended for first-time users).
-*   [**Dependencies**](docs/DEPENDENCIES.md): System requirements and package installation for your platform.
-*   [**Wayland Setup**](docs/WAYLAND.md): Setup guide for Wayland users (one-time configuration required).
+*   [**Quick Start**](docs/quickstart.md): Get up and running in under 5 minutes (recommended for first-time users).
+*   [**Dependencies**](docs/dependencies.md): System requirements and package installation for your platform.
+*   [**Wayland Setup**](docs/wayland.md): Setup guide for Wayland users (one-time configuration required).
 *   [**Configuration**](docs/configuration.md): Detailed guide on `default.yaml` and environment variables.
 *   [**Architecture**](docs/architecture.md): Learn how the audio pipeline, ASR, and LLM engines work together.
 *   [**Compilation**](docs/compilation.md): Instructions for building from source.
@@ -120,7 +120,7 @@ If using **Wayland** (check with `echo $XDG_SESSION_TYPE`):
 3. Trigger tab: Set `Ctrl+Shift+Space`
 4. Action tab: `/full/path/to/extracted/folder/trigger.sh`
 
-**Sway/Hyprland:** See [Wayland Setup Guide](docs/WAYLAND.md)
+**Sway/Hyprland:** See [Wayland Setup Guide](docs/wayland.md)
 
 **Usage:**
 - **X11**: Hold `Ctrl+Shift+Space`, talk, release (works immediately)
@@ -145,7 +145,7 @@ sudo apt install xdotool x11-utils
 
 ### Linux (Other Distributions)
 
-See [DEPENDENCIES.md](docs/DEPENDENCIES.md) for your distribution's package manager commands, then follow the Arch instructions above.
+See [dependencies.md](docs/dependencies.md) for your distribution's package manager commands, then follow the Arch instructions above.
 
 ---
 
@@ -163,7 +163,7 @@ See [DEPENDENCIES.md](docs/DEPENDENCIES.md) for your distribution's package mana
 | Linux X11 | Hold to talk | None |
 | Linux Wayland | Toggle (press twice) | One-time DE shortcut |
 
-**Troubleshooting:** See [DEPENDENCIES.md](docs/DEPENDENCIES.md)
+**Troubleshooting:** See [dependencies.md](docs/dependencies.md)
 
 ## License
 

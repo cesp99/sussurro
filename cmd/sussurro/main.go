@@ -140,7 +140,7 @@ func run() {
 			os.Exit(1)
 		}
 
-		log.Warn("Wayland detected: Configure keyboard shortcut (see docs/WAYLAND.md)")
+		log.Warn("Wayland detected: Configure keyboard shortcut (see docs/wayland.md)")
 	} else {
 		log.Info("X11 detected - using global hotkeys")
 

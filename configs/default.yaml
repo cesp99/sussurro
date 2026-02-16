@@ -16,7 +16,7 @@ models:
     type: "whisper"
     threads: 4
   llm:
-    path: "models/qwen3-1.7b-q4_k_m.gguf"
+    path: "models/qwen3-sussurro-q4_k_m.gguf"
     context_size: 32768
     gpu_layers: 0
     threads: 4

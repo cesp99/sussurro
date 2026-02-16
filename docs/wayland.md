@@ -30,7 +30,7 @@ sudo zypper install wl-clipboard
 
 Without this, Sussurro will fail to inject text.
 
-See [DEPENDENCIES.md](DEPENDENCIES.md) for other optional packages.
+See [dependencies.md](dependencies.md) for other optional packages.
 
 ## One-Time Setup
 

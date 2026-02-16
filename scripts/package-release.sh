@@ -1,11 +1,11 @@
 #!/bin/bash
 # Package Sussurro for release
 # Usage: ./scripts/package-release.sh <version> <platform> <arch>
-# Example: ./scripts/package-release.sh 1.2 linux amd64
+# Example: ./scripts/package-release.sh 1.3 linux amd64
 
 set -e
 
-VERSION=${1:-"1.2"}
+VERSION=${1:-"1.3"}
 PLATFORM=${2:-"linux"}
 ARCH=${3:-"amd64"}
 
@@ -62,7 +62,7 @@ If you're on Wayland (check with: echo $XDG_SESSION_TYPE):
    - Open keyboard settings
    - Add custom shortcut: Ctrl+Shift+Space
    - Command: /full/path/to/trigger.sh
-   - See full guide: https://github.com/cesp99/sussurro/blob/master/docs/WAYLAND.md
+   - See full guide: https://github.com/cesp99/sussurro/blob/master/docs/wayland.md
 
 For X11 Users:
 -------------
@@ -72,7 +72,7 @@ Hold Ctrl+Shift+Space to talk, release to transcribe.
 Documentation:
 -------------
 Full documentation: https://github.com/cesp99/sussurro
-Quick Start Guide: https://github.com/cesp99/sussurro/blob/master/docs/QUICKSTART.md
+Quick Start Guide: https://github.com/cesp99/sussurro/blob/master/docs/quickstart.md
 EOF
 
 # Replace version placeholder (compatible with both GNU and BSD sed)
@@ -101,7 +101,7 @@ fi
 cd ..
 
 echo ""
-echo "✓ Release package created successfully!"
+echo "Release package created successfully!"
 echo ""
 echo "Package: release/${RELEASE_NAME}.tar.gz"
 echo "SHA256: release/${RELEASE_NAME}.tar.gz.sha256"

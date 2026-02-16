@@ -9,7 +9,7 @@ The data flow follows this sequence:
 1.  **Hotkey Trigger**: User presses the configured hotkey (default: `Ctrl+Shift+Space`).
 2.  **Audio Capture**: Microphone input is recorded until the hotkey is released or silence is detected.
 3.  **ASR (Automatic Speech Recognition)**: Raw audio is converted to text using **Whisper.cpp**.
-4.  **LLM Cleanup**: The raw transcription is processed by a Large Language Model (**Qwen 3**) to remove artifacts, filler words, and apply grammar corrections.
+4.  **LLM Cleanup**: The raw transcription is processed by a Large Language Model (**Qwen 3 Sussurro**) to remove artifacts, filler words, and apply grammar corrections.
 5.  **Clipboard and Text Injection**: The cleaned text is written to the clipboard and pasted into the active application.
 
 ---
@@ -28,7 +28,7 @@ The data flow follows this sequence:
 
 ### 3. LLM Engine (`internal/llm`)
 - **Library**: `github.com/AshkanYarmoradi/go-llama.cpp`.
-- **Model**: `Qwen 3 1.7B` (Quantized Q4_K_M).
+- **Model**: `Qwen 3 Sussurro` (Quantized Q4_K_M).
 - **Prompt Engineering**:
     - Uses a specific system prompt to instruct the model to act as a "text cleanup assistant".
     - Enforces rules: remove filler words, fix grammar, output *only* corrected text.

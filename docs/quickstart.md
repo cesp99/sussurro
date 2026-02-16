@@ -77,7 +77,7 @@ If you're on Wayland, you need to set up a keyboard shortcut once:
 6. Click "Apply"
 
 ### Other DEs
-See [WAYLAND.md](WAYLAND.md) for Sway, Hyprland, etc.
+See [wayland.md](wayland.md) for Sway, Hyprland, etc.
 
 ## Step 6: Test It
 

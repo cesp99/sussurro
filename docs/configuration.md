@@ -47,7 +47,7 @@ models:
     type: "whisper"
     threads: 4
   llm:
-    path: "/home/you/.sussurro/models/qwen3-1.7b-q4_k_m.gguf" # Path to Qwen 3 model
+    path: "/home/you/.sussurro/models/qwen3-sussurro-q4_k_m.gguf" # Path to Qwen 3 model
     context_size: 32768                   # Qwen 3 supports large context
     gpu_layers: 0                         # Set > 0 if compiled with Metal or CUDA support
     threads: 4
