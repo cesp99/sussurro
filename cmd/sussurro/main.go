@@ -30,12 +30,23 @@ func main() {
 func run() {
 	// Parse command line flags
 	configPath := flag.String("config", "", "Path to configuration file")
+	whisperFlag := flag.Bool("whisper", false, "Switch Whisper ASR model between Small (488 MB) and Large v3 Turbo (1.62 GB)")
+	wspFlag := flag.Bool("wsp", false, "Switch Whisper ASR model (alias for --whisper)")
 	flag.Parse()
 
 	// Ensure Setup (First Run Experience)
 	if err := setup.EnsureSetup(); err != nil {
 		fmt.Printf("Setup failed: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Handle Whisper model switch: show interactive menu and exit
+	if *whisperFlag || *wspFlag {
+		if err := setup.SwitchWhisperModel(); err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
 	}
 
 	// Load Configuration

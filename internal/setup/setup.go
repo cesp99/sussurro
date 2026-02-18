@@ -41,11 +41,18 @@ injection:
   method: "keyboard"
 `
 	// Whisper Small model
-	urlASR     = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
-	sizeASR    = "488 MB"
+	urlASRSmall  = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin"
+	sizeASRSmall = "488 MB"
+	fileASRSmall = "ggml-small.bin"
+
+	// Whisper Large v3 Turbo model
+	urlASRLarge  = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin"
+	sizeASRLarge = "1.62 GB"
+	fileASRLarge = "ggml-large-v3-turbo.bin"
+
 	// Qwen 3 Sussurro GGUF
-	urlLLM     = "https://huggingface.co/cesp99/qwen3-sussurro/resolve/main/qwen3-sussurro-q4_k_m.gguf"
-	sizeLLM    = "1.28 GB"
+	urlLLM  = "https://huggingface.co/cesp99/qwen3-sussurro/resolve/main/qwen3-sussurro-q4_k_m.gguf"
+	sizeLLM = "1.28 GB"
 )
 
 // EnsureSetup checks for the necessary configuration and models,
@@ -74,15 +81,15 @@ func EnsureSetup() error {
 		}
 	}
 
-	// 2. Create config.yaml if it doesn't exist
+	// 2. Create config.yaml if it doesn't exist (defaults to Whisper Small)
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		fmt.Println("Creating default configuration file...")
 
-		asrPath := filepath.Join(modelsDir, "ggml-small.bin")
-		llmPath := filepath.Join(modelsDir, "qwen3-sussurro-q4_k_m.gguf")
+		defaultASRPath := filepath.Join(modelsDir, fileASRSmall)
+		llmDefaultPath := filepath.Join(modelsDir, "qwen3-sussurro-q4_k_m.gguf")
 
-		configContent := strings.ReplaceAll(defaultConfigTemplate, "{{ASR_PATH}}", asrPath)
-		configContent = strings.ReplaceAll(configContent, "{{LLM_PATH}}", llmPath)
+		configContent := strings.ReplaceAll(defaultConfigTemplate, "{{ASR_PATH}}", defaultASRPath)
+		configContent = strings.ReplaceAll(configContent, "{{LLM_PATH}}", llmDefaultPath)
 
 		if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
 			return fmt.Errorf("failed to write config file: %w", err)
@@ -90,11 +97,16 @@ func EnsureSetup() error {
 		fmt.Printf("Configuration saved to %s\n", configFile)
 	}
 
-	// 3. Check for old model files from versions before v1.3
-	asrPath := filepath.Join(modelsDir, "ggml-small.bin")
+	// Determine which ASR model is currently configured
+	asrPath := filepath.Join(modelsDir, fileASRSmall) // default
+	if configBytes, err := os.ReadFile(configFile); err == nil {
+		if strings.Contains(string(configBytes), fileASRLarge) {
+			asrPath = filepath.Join(modelsDir, fileASRLarge)
+		}
+	}
 	llmPath := filepath.Join(modelsDir, "qwen3-sussurro-q4_k_m.gguf")
 
-	// Check for any .gguf file that isn't the new model (indicates old version)
+	// 3. Check for old model files from versions before v1.3
 	entries, err := os.ReadDir(modelsDir)
 	if err == nil {
 		for _, entry := range entries {
@@ -160,9 +172,43 @@ func EnsureSetup() error {
 	}
 
 	if missingASR || missingLLM {
+		// If ASR is missing, ask which Whisper model to use before the download prompt
+		chosenASRURL := urlASRSmall
+		chosenASRPath := filepath.Join(modelsDir, fileASRSmall)
+		chosenASRName := "Whisper Small"
+		chosenASRSize := sizeASRSmall
+
+		if missingASR {
+			fmt.Println("\nWhich Whisper model would you like to use?")
+			fmt.Printf("  [1] Whisper Small         (%s) - faster, lower memory usage\n", sizeASRSmall)
+			fmt.Printf("  [2] Whisper Large v3 Turbo (%s) - slower, higher accuracy\n", sizeASRLarge)
+			fmt.Print("Enter choice [1/2] (default: 1): ")
+
+			reader := bufio.NewReader(os.Stdin)
+			choice, _ := reader.ReadString('\n')
+			choice = strings.TrimSpace(choice)
+
+			if choice == "2" {
+				chosenASRURL = urlASRLarge
+				chosenASRPath = filepath.Join(modelsDir, fileASRLarge)
+				chosenASRName = "Whisper Large v3 Turbo"
+				chosenASRSize = sizeASRLarge
+
+				// Update config to point to the large model path
+				if configBytes, err := os.ReadFile(configFile); err == nil {
+					oldSmallPath := filepath.Join(modelsDir, fileASRSmall)
+					updated := strings.ReplaceAll(string(configBytes), oldSmallPath, chosenASRPath)
+					if err := os.WriteFile(configFile, []byte(updated), 0644); err != nil {
+						fmt.Printf("Warning: Could not update config file: %v\n", err)
+					}
+				}
+				asrPath = chosenASRPath
+			}
+		}
+
 		fmt.Println("\nMissing model files:")
 		if missingASR {
-			fmt.Printf(" - Whisper Model (ASR): %s (%s)\n", asrPath, sizeASR)
+			fmt.Printf(" - %s (ASR): %s (%s)\n", chosenASRName, chosenASRPath, chosenASRSize)
 		}
 		if missingLLM {
 			fmt.Printf(" - LLM Model (Qwen 3 Sussurro): %s (%s)\n", llmPath, sizeLLM)
@@ -170,9 +216,13 @@ func EnsureSetup() error {
 
 		totalSize := ""
 		if missingASR && missingLLM {
-			totalSize = " (Total: ~1.77 GB)"
+			if chosenASRName == "Whisper Large v3 Turbo" {
+				totalSize = " (Total: ~2.90 GB)"
+			} else {
+				totalSize = " (Total: ~1.77 GB)"
+			}
 		} else if missingASR {
-			totalSize = fmt.Sprintf(" (Total: %s)", sizeASR)
+			totalSize = fmt.Sprintf(" (Total: %s)", chosenASRSize)
 		} else {
 			totalSize = fmt.Sprintf(" (Total: %s)", sizeLLM)
 		}
@@ -184,7 +234,7 @@ func EnsureSetup() error {
 
 		if response == "" || response == "y" || response == "yes" {
 			if missingASR {
-				if err := downloadFile(urlASR, asrPath, "Whisper Model"); err != nil {
+				if err := downloadFile(chosenASRURL, chosenASRPath, chosenASRName); err != nil {
 					return fmt.Errorf("failed to download ASR model: %w", err)
 				}
 			}
@@ -199,6 +249,105 @@ func EnsureSetup() error {
 		}
 	}
 
+	return nil
+}
+
+// SwitchWhisperModel lets the user switch between Whisper Small and Whisper Large v3 Turbo.
+// It reads the current config, shows the active model, offers the alternative, downloads it
+// if needed, and updates the config file.
+func SwitchWhisperModel() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	sussurroDir := filepath.Join(homeDir, ".sussurro")
+	modelsDir := filepath.Join(sussurroDir, "models")
+	configFile := filepath.Join(sussurroDir, "config.yaml")
+
+	smallPath := filepath.Join(modelsDir, fileASRSmall)
+	largePath := filepath.Join(modelsDir, fileASRLarge)
+
+	// Read config to determine the currently configured model
+	configBytes, err := os.ReadFile(configFile)
+	if err != nil {
+		return fmt.Errorf("could not read config file at %s: %w\nRun 'sussurro' first to complete initial setup", configFile, err)
+	}
+	configStr := string(configBytes)
+
+	currentIsLarge := strings.Contains(configStr, fileASRLarge)
+	var currentName, currentSize string
+	if currentIsLarge {
+		currentName = "Whisper Large v3 Turbo"
+		currentSize = sizeASRLarge
+	} else {
+		currentName = "Whisper Small"
+		currentSize = sizeASRSmall
+	}
+
+	fmt.Printf("\nCurrent Whisper model: %s (%s)\n", currentName, currentSize)
+	fmt.Println("\nAvailable models:")
+	fmt.Printf("  [1] Whisper Small         (%s) - faster, lower memory usage\n", sizeASRSmall)
+	fmt.Printf("  [2] Whisper Large v3 Turbo (%s) - slower, higher accuracy\n", sizeASRLarge)
+	fmt.Print("\nEnter choice [1/2]: ")
+
+	reader := bufio.NewReader(os.Stdin)
+	choice, _ := reader.ReadString('\n')
+	choice = strings.TrimSpace(choice)
+
+	var targetPath, targetURL, targetName, targetSize string
+	switch choice {
+	case "1":
+		targetPath = smallPath
+		targetURL = urlASRSmall
+		targetName = "Whisper Small"
+		targetSize = sizeASRSmall
+	case "2":
+		targetPath = largePath
+		targetURL = urlASRLarge
+		targetName = "Whisper Large v3 Turbo"
+		targetSize = sizeASRLarge
+	default:
+		fmt.Println("Invalid choice. No changes made.")
+		return nil
+	}
+
+	// Check if already using this model
+	if (choice == "1" && !currentIsLarge) || (choice == "2" && currentIsLarge) {
+		fmt.Printf("Already using %s. No changes needed.\n", targetName)
+		return nil
+	}
+
+	// Download the target model if not already present
+	if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+		fmt.Printf("\n%s not found locally (%s). Download now? (Y/n): ", targetName, targetSize)
+		resp, _ := reader.ReadString('\n')
+		resp = strings.TrimSpace(strings.ToLower(resp))
+		if resp != "" && resp != "y" && resp != "yes" {
+			fmt.Println("Download cancelled. No changes made.")
+			return nil
+		}
+		if err := downloadFile(targetURL, targetPath, targetName); err != nil {
+			return fmt.Errorf("failed to download %s: %w", targetName, err)
+		}
+		fmt.Println()
+	}
+
+	// Update config: replace the current ASR path with the new one
+	var oldPath string
+	if currentIsLarge {
+		oldPath = largePath
+	} else {
+		oldPath = smallPath
+	}
+	updatedConfig := strings.ReplaceAll(configStr, oldPath, targetPath)
+
+	if err := os.WriteFile(configFile, []byte(updatedConfig), 0644); err != nil {
+		return fmt.Errorf("failed to update config file: %w", err)
+	}
+
+	fmt.Printf("\nSwitched to %s successfully!\n", targetName)
+	fmt.Printf("Config updated: %s\n", configFile)
 	return nil
 }
 

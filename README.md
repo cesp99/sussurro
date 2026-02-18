@@ -27,6 +27,7 @@ Sussurro uses local AI models to ensure privacy and low latency. It combines:
 - **System-Wide**: Works in any application where you can type.
 - **Configurable**: Load custom configs at runtime.
 - **Cross-Platform**: Designed for macOS, Windows and Linux.
+- **Flexible ASR**: Choose between Whisper Small (fast) or Whisper Large v3 Turbo (accurate) at setup or later.
 
 ## Documentation
 
@@ -164,6 +165,26 @@ See [dependencies.md](docs/dependencies.md) for your distribution's package mana
 | Linux Wayland | Toggle (press twice) | One-time DE shortcut |
 
 **Troubleshooting:** See [dependencies.md](docs/dependencies.md)
+
+## Switching Whisper Models
+
+You can switch the Whisper ASR model at any time using `--whisper` (or `--wsp`):
+
+```bash
+./sussurro --whisper
+# or
+./sussurro --wsp
+```
+
+This opens an interactive menu to switch between:
+
+| Model | Size | Best for |
+|-------|------|----------|
+| Whisper Small | 488 MB | Faster transcription, lower RAM usage |
+| Whisper Large v3 Turbo | 1.62 GB | Higher accuracy, slower |
+
+If the selected model isn't already downloaded, Sussurro will offer to download it.
+The model choice is also prompted during first-run setup.
 
 ## License
 

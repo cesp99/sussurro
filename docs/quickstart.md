@@ -49,8 +49,13 @@ xattr -d com.apple.quarantine sussurro 2>/dev/null || true
 ```
 
 Follow the prompts to:
-1. Download AI models (happens automatically)
-2. Wait for models to download (this takes a few minutes)
+1. Choose your Whisper ASR model:
+   - **Whisper Small** (488 MB) — faster, good accuracy
+   - **Whisper Large v3 Turbo** (1.62 GB) — slower, best accuracy
+2. Download the AI models (LLM is always ~1.28 GB)
+3. Wait for models to download (this takes a few minutes)
+
+> **Tip:** You can switch the Whisper model later with `./sussurro --whisper`
 
 ## Step 5: Configure Hotkey (Wayland Only)
 
@@ -110,6 +115,7 @@ See [wayland.md](wayland.md) for Sway, Hyprland, etc.
 ## Next Steps
 
 - Customize hotkey: Edit `~/.sussurro/config.yaml`
+- Switch Whisper model: Run `./sussurro --whisper` (or `--wsp`)
 - Use different models: See [Configuration Guide](configuration.md)
 - Build from source: See [Compilation Guide](compilation.md)
 

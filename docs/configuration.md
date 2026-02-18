@@ -55,6 +55,21 @@ models:
 
 Use absolute paths for model files. The first run setup writes a config file with absolute paths based on your home directory.
 
+#### Whisper ASR Models
+
+Two Whisper models are supported. During first-run setup you will be asked which one to download. You can also switch at any time:
+
+```bash
+sussurro --whisper   # or: sussurro --wsp
+```
+
+| Model | Filename | Size | Notes |
+|-------|----------|------|-------|
+| Whisper Small | `ggml-small.bin` | 488 MB | Faster, lower RAM |
+| Whisper Large v3 Turbo | `ggml-large-v3-turbo.bin` | 1.62 GB | Slower, higher accuracy |
+
+The `--whisper` / `--wsp` flag opens an interactive menu, downloads the chosen model if needed, and updates `~/.sussurro/config.yaml` automatically.
+
 ### Hotkey Settings
 ```yaml
 hotkey:
