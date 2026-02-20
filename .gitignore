@@ -35,3 +35,5 @@ models/
 
 # UI build helpers
 .build-compat/
+
+commit.txt
