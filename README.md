@@ -80,8 +80,6 @@ make build-ui        # builds with overlay + settings UI
 ```
 Follow the prompts to download the AI models.
 
-> **Note:** Always launch from a terminal — see [Known Limitations](#known-limitations).
-
 **Step 4 (Wayland only):** Configure a keyboard shortcut — see [Wayland Setup](docs/wayland.md).
 
 ---
@@ -154,17 +152,9 @@ This runs Sussurro exactly as before — terminal output only, no overlay, no tr
 
 ## Known Limitations
 
-### Must be launched from a terminal
+### "Start at Login" toggle
 
-At this stage the UI build must be started from a terminal emulator. Launching Sussurro via a `.desktop` file, application menu, dock icon, or autostart entry is **not yet supported** and will likely fail to display the overlay or tray icon.
-
-```bash
-# Correct — always launch from a terminal session
-./sussurro          # UI mode
-./sussurro --no-ui  # headless mode
-```
-
-This limitation will be addressed in a future release. The "Start at Login" toggle in Settings is present in the UI but may not work reliably until desktop-launcher support is added.
+The "Start at Login" toggle in Settings is present in the UI but is not yet implemented. It will be addressed in a future release.
 
 ---
 

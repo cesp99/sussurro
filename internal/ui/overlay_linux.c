@@ -356,8 +356,9 @@ GtkWidget *overlay_create(void)
     {
         GdkDisplay  *display = gdk_display_get_default();
         GdkMonitor  *monitor = gdk_display_get_primary_monitor(display);
-        GdkRectangle geo;
-        gdk_monitor_get_geometry(monitor, &geo);
+        if (!monitor) monitor = gdk_display_get_monitor(display, 0);
+        GdkRectangle geo = {0, 0, 1920, 1080}; /* safe fallback */
+        if (monitor) gdk_monitor_get_geometry(monitor, &geo);
         int x = geo.x + (geo.width  - OVERLAY_WIDTH)  / 2;
         int y = geo.y +  geo.height - OVERLAY_HEIGHT - 24;
         gtk_window_move(GTK_WINDOW(win), x, y);

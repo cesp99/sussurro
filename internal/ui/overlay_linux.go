@@ -21,7 +21,10 @@ static MenuOpenSettingsCB menuOpenSettingsCB(void) { return (MenuOpenSettingsCB)
 static MenuQuitCB         menuQuitCB(void)         { return (MenuQuitCB)goQuit;                   }
 */
 import "C"
-import "unsafe"
+import (
+	"os"
+	"unsafe"
+)
 
 // linuxOverlay wraps the CGO GTK3 overlay window.
 type linuxOverlay struct {
@@ -68,6 +71,12 @@ func goQuit() {
 // Calls gtk_init() first so both the overlay and the subsequent webview share
 // the same GTK context. Must be called from the main goroutine before webview.Run().
 func newOverlay() Overlay {
+	// Force X11 backend: the overlay uses override_redirect and XGrabKey which
+	// are X11-only. Without this, GTK picks Wayland when WAYLAND_DISPLAY is set
+	// (e.g. Konsole), making both features no-ops and breaking the overlay.
+	// gtk-layer-shell is not available so we always run via XWayland anyway.
+	os.Setenv("GDK_BACKEND", "x11") //nolint:errcheck
+
 	// gtk_init(NULL, NULL) — idempotent if already initialised by webview.
 	C.gtk_init(nil, nil)
 	win := C.overlay_create()
