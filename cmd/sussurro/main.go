@@ -18,19 +18,39 @@ import (
 	"github.com/cesp99/sussurro/internal/pipeline"
 	"github.com/cesp99/sussurro/internal/setup"
 	"github.com/cesp99/sussurro/internal/trigger"
+	"github.com/cesp99/sussurro/internal/ui"
 	"github.com/cesp99/sussurro/internal/version"
 
 	"golang.design/x/hotkey/mainthread"
 )
 
 func main() {
-	mainthread.Init(run)
+	// Peek at --no-ui before deciding whether we need mainthread.Init.
+	// mainthread.Init is needed for golang.design/x/hotkey on X11/macOS in CLI mode.
+	noUI := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--no-ui" || arg == "-no-ui" {
+			noUI = true
+			break
+		}
+	}
+
+	if noUI {
+		// CLI / headless mode: keep the existing mainthread.Init wrapper so
+		// that golang.design/x/hotkey works correctly on X11 and macOS.
+		mainthread.Init(run)
+	} else {
+		// UI mode: gtk_main() / [NSApp run] owns the main thread.
+		// Hotkeys on X11 are handled via GDK XGrabKey (no mainthread.Init needed).
+		run()
+	}
 }
 
 func run() {
 	// Parse command line flags
 	configPath := flag.String("config", "", "Path to configuration file")
-	whisperFlag := flag.Bool("whisper", false, "Switch Whisper ASR model between Small (488 MB) and Large v3 Turbo (1.62 GB)")
+	noUIFlag := flag.Bool("no-ui", false, "Run in headless CLI mode (no overlay or tray)")
+	whisperFlag := flag.Bool("whisper", false, "Switch Whisper ASR model")
 	wspFlag := flag.Bool("wsp", false, "Switch Whisper ASR model (alias for --whisper)")
 	flag.Parse()
 
@@ -58,7 +78,7 @@ func run() {
 
 	// Initialize Logger
 	log := logger.Init(cfg.App.LogLevel)
-	log.Info("Starting Sussurro CLI", "version", version.Version)
+	log.Info("Starting Sussurro", "version", version.Version, "ui", !*noUIFlag)
 
 	// Check if models exist
 	if _, err := os.Stat(cfg.Models.ASR.Path); os.IsNotExist(err) {
@@ -104,26 +124,65 @@ func run() {
 	injector, err := injection.NewInjector()
 	if err != nil {
 		log.Error("Failed to initialize injector", "error", err)
-		// We might want to continue even if injector fails, depending on requirements,
-		// but typically it's essential for this app.
 	}
 
 	// Initialize and Start Pipeline
 	pipe := pipeline.NewPipeline(audioEngine, asrEngine, llmEngine, ctxProvider, injector, log, cfg.Audio.SampleRate, cfg.Audio.MaxDuration)
 
-	// No UI to update on completion, so we can pass nil or a logging callback
 	pipe.SetOnCompletion(func() {
 		log.Debug("Pipeline processing completed")
 	})
 
-	err = pipe.Start()
-	if err != nil {
+	if err := pipe.Start(); err != nil {
 		log.Error("Failed to start pipeline", "error", err)
 		os.Exit(1)
 	}
 	defer pipe.Stop()
 
-	// Initialize input handler (hotkey or trigger server depending on environment)
+	// ---- UI mode ----
+	if !*noUIFlag {
+		uiMgr, err := ui.NewManager(cfg)
+		if err != nil {
+			log.Error("Failed to initialize UI manager", "error", err)
+			os.Exit(1)
+		}
+
+		pipe.SetUINotifier(uiMgr)
+
+		// Set up input handler before entering the UI main loop.
+		if hotkey.IsWayland() {
+			log.Debug("Wayland detected - using trigger server")
+			triggerServer, err := trigger.NewServer(log)
+			if err != nil {
+				log.Error("Failed to initialize trigger server", "error", err)
+				os.Exit(1)
+			}
+			defer triggerServer.Stop()
+			if err := triggerServer.Start(
+				func() { log.Debug("Trigger: Starting recording"); pipe.StartRecording() },
+				func() { log.Debug("Trigger: Stopping recording"); pipe.StopRecording() },
+			); err != nil {
+				log.Error("Failed to start trigger server", "error", err)
+				os.Exit(1)
+			}
+			log.Warn("Wayland: configure keyboard shortcut (see docs/wayland.md)")
+		} else {
+			// X11 / macOS: register hotkey via GDK XGrabKey (no mainthread.Init needed).
+			log.Info("X11/macOS detected - using overlay hotkey")
+			uiMgr.InstallHotkey(cfg.Hotkey.Trigger,
+				func() { log.Info("Listening..."); pipe.StartRecording() },
+				func() { log.Info("Transcribing..."); pipe.StopRecording() },
+			)
+		}
+
+		log.Info("Sussurro UI running")
+		uiMgr.Run() // blocks until Quit()
+		return
+	}
+
+	// ---- Headless / CLI mode (--no-ui) ----
+	log.Info("Headless mode — no overlay")
+
 	if hotkey.IsWayland() {
 		log.Debug("Wayland detected - using trigger server")
 
@@ -134,23 +193,13 @@ func run() {
 		}
 		defer triggerServer.Stop()
 
-		err = triggerServer.Start(
-			func() { // On trigger start
-				log.Debug("Trigger: Starting recording")
-				pipe.StartRecording()
-			},
-			func() { // On trigger stop
-				log.Debug("Trigger: Stopping recording")
-				if !pipe.StopRecording() {
-					log.Debug("Recording was not active or already stopped")
-				}
-			},
-		)
-		if err != nil {
+		if err := triggerServer.Start(
+			func() { log.Debug("Trigger: Starting recording"); pipe.StartRecording() },
+			func() { log.Debug("Trigger: Stopping recording"); pipe.StopRecording() },
+		); err != nil {
 			log.Error("Failed to start trigger server", "error", err)
 			os.Exit(1)
 		}
-
 		log.Warn("Wayland detected: Configure keyboard shortcut (see docs/wayland.md)")
 	} else {
 		log.Info("X11 detected - using global hotkeys")
@@ -162,19 +211,10 @@ func run() {
 		}
 		defer hkHandler.Unregister()
 
-		err = hkHandler.Register(
-			func() { // On Key Down
-				log.Info("Listening...")
-				pipe.StartRecording()
-			},
-			func() { // On Key Up
-				log.Info("Transcribing...")
-				if !pipe.StopRecording() {
-					log.Debug("Recording was not active or already stopped")
-				}
-			},
-		)
-		if err != nil {
+		if err := hkHandler.Register(
+			func() { log.Info("Listening..."); pipe.StartRecording() },
+			func() { log.Info("Transcribing..."); pipe.StopRecording() },
+		); err != nil {
 			log.Error("Failed to register hotkey", "error", err)
 			os.Exit(1)
 		}
@@ -182,13 +222,8 @@ func run() {
 
 	log.Info("Sussurro running. Press Ctrl+C to exit.")
 
-	// Setup signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Block until signal received
 	sig := <-sigChan
 	log.Info("Received signal, shutting down...", "signal", sig)
-
-	// Defer statements will handle cleanup in reverse order
 }

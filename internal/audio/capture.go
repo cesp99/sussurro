@@ -19,6 +19,28 @@ type CaptureEngine struct {
 	isRecording  bool
 	mutex        sync.Mutex
 	dataCallback func([]byte)
+	rmsCB        func(float32) // optional RMS callback, set via SetRMSCallback
+}
+
+// SetRMSCallback installs a callback that receives the RMS level of each
+// incoming audio chunk.  The callback is invoked from the audio thread —
+// implementations must be non-blocking.
+func (e *CaptureEngine) SetRMSCallback(cb func(float32)) {
+	e.mutex.Lock()
+	e.rmsCB = cb
+	e.mutex.Unlock()
+}
+
+// computeRMS returns the root-mean-square of a float32 sample slice.
+func computeRMS(samples []float32) float32 {
+	if len(samples) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, s := range samples {
+		sum += float64(s) * float64(s)
+	}
+	return float32(math.Sqrt(sum / float64(len(samples))))
 }
 
 // NewCaptureEngine creates a new engine instance
@@ -52,12 +74,21 @@ func (e *CaptureEngine) StartRecording(dataChan chan<- []float32) error {
 		// data contains raw F32 samples (4 bytes each)
 		numSamples := len(data) / 4
 		floats := make([]float32, numSamples)
-		
+
 		for i := 0; i < numSamples; i++ {
 			bits := binary.LittleEndian.Uint32(data[i*4 : (i+1)*4])
 			floats[i] = math.Float32frombits(bits)
 		}
-		
+
+		// Invoke RMS callback (non-blocking) if installed
+		e.mutex.Lock()
+		cb := e.rmsCB
+		e.mutex.Unlock()
+		if cb != nil {
+			rms := computeRMS(floats)
+			cb(rms)
+		}
+
 		// Non-blocking send
 		select {
 		case dataChan <- floats:
@@ -65,7 +96,7 @@ func (e *CaptureEngine) StartRecording(dataChan chan<- []float32) error {
 			// Drop frame if buffer is full
 		}
 	}
-	
+
 	// Start the internal device
 	return e.startDevice(onData)
 }
@@ -90,10 +121,10 @@ func (e *CaptureEngine) startDevice(onData func([]byte)) error {
 				if len(pInputSamples) == 0 {
 					return
 				}
-				
+
 				dataCopy := make([]byte, len(pInputSamples))
 				copy(dataCopy, pInputSamples)
-				
+
 				e.dataCallback(dataCopy)
 			}
 		},

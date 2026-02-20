@@ -1,195 +1,167 @@
 # System Dependencies
 
-This guide lists all system packages required to run Sussurro on your platform.
-
-## Quick Check: What Do I Need?
-
-**macOS:** Nothing. All dependencies are built-in.
-
-**Linux X11:** Nothing required. Optional packages improve functionality.
-
-**Linux Wayland:** **REQUIRED:** `wl-clipboard` package (install before first run)
+This guide lists all system packages required to **run** and **build** Sussurro.
 
 ---
 
-## Linux (Wayland)
+## Runtime Dependencies
 
-### Required Packages
+### macOS
 
-**CRITICAL:** Wayland users MUST install a clipboard manager before running Sussurro:
+Nothing. Sussurro uses native macOS APIs (Cocoa, CoreGraphics, WKWebView, NSStatusItem).
+
+---
+
+### Linux — UI Mode (default)
+
+The overlay, settings window, and system tray require the following libraries at runtime:
+
+| Library | Purpose | Package name |
+|---------|---------|-------------|
+| GTK 3 | Overlay window, UI toolkit | `gtk3` / `libgtk-3-0` |
+| WebKit2GTK | Settings window HTML renderer | `webkit2gtk-4.1` / `libwebkit2gtk-4.1-0` |
+| AppIndicator | System tray icon | `libappindicator-gtk3` / `libayatana-appindicator3-1` |
+| gtk-layer-shell | True Wayland overlay (optional) | `gtk-layer-shell` / `libgtk-layer-shell0` |
+| wl-clipboard | Clipboard on Wayland | `wl-clipboard` |
 
 #### Arch Linux / Manjaro
 ```bash
+# Required
+sudo pacman -S gtk3 webkit2gtk-4.1 libappindicator-gtk3
+
+# Wayland clipboard (required on Wayland)
 sudo pacman -S wl-clipboard
+
+# Recommended: true wlr-layer-shell overlay
+sudo pacman -S gtk-layer-shell
+
+# X11 optional helpers
+sudo pacman -S xdotool xorg-xprop
 ```
 
-#### Ubuntu / Debian
+#### Ubuntu / Debian (22.04+)
 ```bash
+# Required
+sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1
+
+# Wayland clipboard
 sudo apt install wl-clipboard
+
+# Recommended
+sudo apt install libgtk-layer-shell0
+
+# X11 optional
+sudo apt install xdotool x11-utils
 ```
 
-#### Fedora
+#### Fedora (38+)
 ```bash
-sudo dnf install wl-clipboard
+sudo dnf install gtk3 webkit2gtk4.1 libappindicator-gtk3 wl-clipboard
 ```
 
 #### openSUSE
 ```bash
-sudo zypper install wl-clipboard
+sudo zypper install libgtk-3-0 libwebkit2gtk-4.1 libappindicator3-1 wl-clipboard
 ```
 
-### Optional Packages
+---
 
-For window context detection (to get active application name):
+### Linux — Headless / CLI Mode (`--no-ui`)
+
+Only `wl-clipboard` is needed on Wayland. No GTK or WebKit required.
+
 ```bash
-# Most DEs include these by default, but if missing:
-sudo pacman -S xdg-utils          # Arch
-sudo apt install xdg-utils         # Ubuntu/Debian
+sudo pacman -S wl-clipboard   # Arch (Wayland only)
+sudo apt install wl-clipboard  # Ubuntu/Debian (Wayland only)
 ```
 
-For desktop notifications:
-```bash
-sudo pacman -S libnotify           # Arch
-sudo apt install libnotify-bin     # Ubuntu/Debian
-```
-
-For the trigger script (usually pre-installed):
-```bash
-# One of these is needed:
-sudo pacman -S openbsd-netcat      # Arch (nc command)
-sudo apt install netcat-openbsd    # Ubuntu/Debian
-# OR
-sudo pacman -S socat               # Alternative
-```
-
-## Linux (X11)
-
-### Required Packages
-
-X11 users don't need additional clipboard tools (uses X11 clipboard directly).
-
-### Optional Packages
-
-For window context detection:
-```bash
-sudo pacman -S xdotool xorg-xprop  # Arch
-sudo apt install xdotool x11-utils # Ubuntu/Debian
-```
-
-## macOS
-
-No additional dependencies required. Sussurro uses native macOS APIs for:
-- Clipboard (NSPasteboard)
-- Window detection (CoreGraphics)
-- Global hotkeys (Carbon)
-
-## Windows
-
-Not yet tested...
-
-## Desktop Environment Specific Notes
-
-### GNOME (Wayland)
-- **Required**: `wl-clipboard`
-- **Included by default**: Desktop notifications, xdg-utils
-
-### KDE Plasma (Wayland)
-- **Required**: `wl-clipboard`
-- Usually includes klipper (clipboard manager) but wl-clipboard is still needed for CLI access
-
-### Sway
-- **Required**: `wl-clipboard`
-- **Recommended**: Install `mako` or `dunst` for notifications
-
-### Hyprland
-- **Required**: `wl-clipboard`
-- **Recommended**: Install `mako` or `dunst` for notifications
-
-### GNOME (X11)
-- No additional requirements beyond base X11 packages
-
-### KDE Plasma (X11)
-- No additional requirements beyond base X11 packages
-
-## Troubleshooting
-
-### "Failed to write to clipboard"
-
-**On Wayland:**
-```bash
-# Check if wl-clipboard is installed
-which wl-copy
-# If not found, install it (see above)
-
-# Test clipboard manually
-echo "test" | wl-copy
-wl-paste
-```
-
-**On X11:**
-This should work out of the box. If you see this error, your X11 setup might be incomplete.
-
-### "Context provider" errors
-
-**On Wayland:**
-Sussurro may not be able to detect the active window on all Wayland compositors due to security restrictions. This is a Wayland limitation, not a bug.
-
-**On X11:**
-Install xdotool and xprop:
-```bash
-sudo pacman -S xdotool xorg-xprop  # Arch
-sudo apt install xdotool x11-utils # Ubuntu/Debian
-```
-
-### Trigger script not working (Wayland only)
-
-Make sure you have `nc` (netcat) or `socat` installed:
-```bash
-# Test if netcat works
-echo "test" | nc -U /tmp/test.sock 2>&1
-
-# If not, install:
-sudo pacman -S openbsd-netcat  # Arch
-sudo apt install netcat-openbsd # Ubuntu/Debian
-```
+---
 
 ## Build Dependencies
 
-These are only needed if building from source:
+These are required when compiling from source.
 
 ### All Platforms
-- Go 1.24+
-- Make
-- CMake 3.15+
-- C/C++ compiler (gcc/clang/MSVC)
+- **Go 1.24+**
+- **Make**
+- **CMake 3.15+**
+- **C/C++ compiler** (gcc/clang)
+- **Git**
 
-### Linux
-- Build essentials:
-  ```bash
-  sudo pacman -S base-devel cmake    # Arch
-  sudo apt install build-essential cmake  # Ubuntu/Debian
-  ```
+### Linux (`make build`)
+
+All runtime libraries plus their `-dev` / header packages:
+
+#### Arch Linux / Manjaro
+```bash
+sudo pacman -S gtk3 webkit2gtk-4.1 libappindicator-gtk3 base-devel cmake git go
+
+# Optional (adds wlr-layer-shell support to the overlay)
+sudo pacman -S gtk-layer-shell
+```
+
+#### Ubuntu / Debian (22.04+)
+```bash
+sudo apt install libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+                 build-essential cmake git golang-go
+
+# Optional
+sudo apt install libgtk-layer-shell-dev
+```
+
+#### Fedora (38+)
+```bash
+sudo dnf install gtk3-devel webkit2gtk4.1-devel libappindicator-gtk3-devel \
+                 gcc gcc-c++ cmake git golang
+```
+
+> **Note for Arch users:** The `webview_go` dependency declares `webkit2gtk-4.0` in its CGO
+> directives. `make build` automatically creates a compatibility shim so that
+> `webkit2gtk-4.1` (the package available on Arch) is used instead. No manual steps needed.
 
 ### macOS
-- Xcode Command Line Tools:
-  ```bash
-  xcode-select --install
-  ```
-
-### Windows
-- MinGW-w64 or Visual Studio Build Tools
-- CMake
-
-## Verifying Dependencies
-
-Quick check script:
 ```bash
-# On Wayland
-which wl-copy && echo "Clipboard: OK" || echo "Clipboard: MISSING - install wl-clipboard"
-which nc && echo "Netcat: OK" || echo "Netcat: MISSING - install netcat"
-which notify-send && echo "Notifications: OK" || echo "Notifications: MISSING (optional)"
+xcode-select --install   # Xcode Command Line Tools
+# Go: https://go.dev/dl/
+```
 
-# On X11
-which xdotool && echo "xdotool: OK" || echo "xdotool: MISSING (optional)"
-which xprop && echo "xprop: OK" || echo "xprop: MISSING (optional)"
+---
+
+## Verifying Runtime Dependencies
+
+```bash
+# Check GTK3
+pkg-config --exists gtk+-3.0 && echo "GTK3: OK" || echo "GTK3: MISSING"
+
+# Check WebKit
+pkg-config --exists webkit2gtk-4.1 && echo "WebKit 4.1: OK" || \
+  pkg-config --exists webkit2gtk-4.0 && echo "WebKit 4.0: OK" || echo "WebKit: MISSING"
+
+# Check layer-shell (optional)
+pkg-config --exists gtk-layer-shell && echo "Layer shell: OK" || echo "Layer shell: not installed (overlay will use fallback)"
+
+# Check Wayland clipboard
+which wl-copy && echo "wl-clipboard: OK" || echo "wl-clipboard: MISSING"
+```
+
+---
+
+## Troubleshooting
+
+### Settings window blank or doesn't open
+WebKit2GTK is missing or the wrong version. Install `webkit2gtk-4.1` (or `webkit2gtk-4.0` on older distros).
+
+### Tray icon missing
+Some desktop environments need an SNI proxy:
+- GNOME: install the [AppIndicator extension](https://extensions.gnome.org/extension/615/appindicator-support/) or `snixembed`
+- If no tray is available, **right-click the overlay capsule** to access Settings and Quit
+
+### Overlay appears below other windows (X11 without layer-shell)
+The overlay uses `_NET_WM_STATE_ABOVE` on X11. If a compositor ignores this, try installing `gtk-layer-shell` and rebuilding with `make build` (layer-shell takes priority on Wayland).
+
+### "clipboard failed" on Wayland
+Install `wl-clipboard`:
+```bash
+sudo pacman -S wl-clipboard   # Arch
+sudo apt install wl-clipboard  # Ubuntu/Debian
 ```

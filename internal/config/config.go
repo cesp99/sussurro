@@ -1,6 +1,9 @@
 package config
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -52,6 +55,38 @@ type HotkeyConfig struct {
 
 type InjectionConfig struct {
 	Method string `mapstructure:"method"`
+}
+
+// SaveHotkey rewrites only the hotkey.trigger field in the YAML config file.
+func SaveHotkey(cfg *Config, trigger string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot find home directory: %w", err)
+	}
+	configFile := filepath.Join(homeDir, ".sussurro", "config.yaml")
+
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return fmt.Errorf("cannot read config file: %w", err)
+	}
+
+	// Simple line-by-line replacement of the trigger value.
+	lines := strings.Split(string(data), "\n")
+	replaced := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "trigger:") {
+			indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+			lines[i] = indent + "trigger: \"" + trigger + "\""
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		return fmt.Errorf("trigger key not found in config file")
+	}
+
+	return os.WriteFile(configFile, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 func LoadConfig(path string) (*Config, error) {

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sussurro Settings</title>
+  <style>{{CSS}}</style>
+</head>
+<body>
+<div class="window">
+
+  <!-- Scrollable content -->
+  <div class="content">
+
+    <!-- Speech Recognition -->
+    <div class="section">
+      <div class="section-label">Speech Recognition (Whisper)</div>
+      <div id="whisper-list"></div>
+    </div>
+
+    <!-- Language Model -->
+    <div class="section">
+      <div class="section-label">Language Model (LLM)</div>
+      <div id="llm-list"></div>
+    </div>
+
+    <!-- Global Hotkey -->
+    <div class="section">
+      <div class="section-label">Global Hotkey</div>
+
+      <!-- X11 row -->
+      <div id="hotkey-x11" class="hotkey-row" hidden>
+        <div>
+          <div class="toggle-label">Hotkey</div>
+          <div id="hotkey-display" class="hotkey-display" style="margin-top:6px"></div>
+        </div>
+        <button class="hotkey-edit-btn" id="hotkey-edit-btn">Change</button>
+      </div>
+
+      <!-- Wayland note -->
+      <div id="hotkey-wayland" class="hotkey-wayland-note" hidden>
+        On Wayland, global hotkeys require a custom keyboard shortcut in your desktop environment.<br>
+        Configure your DE to run: <code style="color:#e8e8ea;background:#1a1a1c;padding:2px 5px;border-radius:4px">sussurro-trigger start</code> on key down,
+        and <code style="color:#e8e8ea;background:#1a1a1c;padding:2px 5px;border-radius:4px">sussurro-trigger stop</code> on key up.<br>
+        See <a href="#" onclick="window.openURL('https://github.com/cesp99/sussurro/blob/master/docs/wayland.md'); return false">docs/wayland.md</a> for instructions.
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- Status bar -->
+  <div class="statusbar">
+    <div class="status-dot"></div>
+    <div class="status-text">Ready</div>
+    <div class="platform-label" id="platform-label"></div>
+    <div class="version-label" id="version-label"></div>
+  </div>
+
+</div><!-- /window -->
+
+<!-- Hotkey recording modal -->
+<div class="modal-backdrop" id="hotkey-modal">
+  <div class="modal">
+    <h3>Press a new hotkey</h3>
+    <p>Hold your modifier keys (Ctrl, Shift, Alt) then press the key.</p>
+    <button class="modal-cancel" id="hotkey-modal-cancel">Cancel</button>
+  </div>
+</div>
+
+<script>{{JS}}</script>
+
+</body>
+</html>

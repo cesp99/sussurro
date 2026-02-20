@@ -1,0 +1,42 @@
+feat: v1.5 - native overlay UI for Linux
+
+Add a full built-in UI layer (Linux only for now) with a GTK3/Cairo
+overlay capsule, WebKit2GTK settings window, and system tray. macOS
+remains headless-only in this release.
+
+New packages:
+- internal/ui: platform UI manager (app.go), GTK3/Cairo overlay capsule
+  (overlay_linux.c/h, overlay_linux.go), webview settings window
+  (settings.go, settings_bridge.go, settings_native_linux.go), system
+  tray (tray.go), Darwin stubs (app_darwin.go, overlay_darwin.go/m,
+  settings_native_darwin.go), shared notifier interface (notifier.go),
+  embedded assets (assets/)
+
+Modified source:
+- cmd/sussurro/main.go: add --no-ui flag; in UI mode skip
+  mainthread.Init (GTK owns the main thread); wire ui.Manager as
+  StateNotifier and install overlay hotkey via GDK XGrabKey on X11
+- internal/audio/capture.go: add SetRMSCallback() to stream microphone
+  RMS levels to the overlay for live waveform animation
+- internal/config/config.go: add UI-related config fields (hotkey,
+  overlay position, settings)
+- internal/pipeline/pipeline.go: add SetUINotifier() and notifyState()
+  to push idle/recording/transcribing state to the UI layer
+- internal/setup/setup.go: expand first-run setup for UI mode
+- internal/version/version.go: bump to 1.5
+
+Build:
+- Makefile: unify into a single `make build` / `make run`; auto-create
+  webkit2gtk-4.0 compat .pc shim for Arch (which only ships 4.1);
+  auto-detect ayatana vs legacy appindicator build tag; detect
+  gtk-layer-shell for Wayland
+- go.mod/go.sum: add webview_go, getlantern/systray, godbus/dbus
+
+Docs:
+- README.md: update to v1.5 badge; restructure Getting Started
+  (Linux UI first, macOS headless-only section); document overlay
+  capsule states; add Known Limitations (terminal-launch required)
+- docs/architecture.md: document UI layer components and main-thread
+  ownership model
+- docs/compilation.md, docs/quickstart.md, docs/dependencies.md:
+  update for unified build and terminal-launch note

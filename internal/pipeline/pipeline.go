@@ -15,6 +15,15 @@ import (
 	"github.com/cesp99/sussurro/internal/llm"
 )
 
+// StateNotifier receives pipeline state transitions and audio RMS values.
+// Implementations must be non-blocking (use channels / async dispatch internally).
+type StateNotifier interface {
+	// AppState values mirror ui.AppState to avoid an import cycle.
+	// 0=Idle, 1=Recording, 2=Transcribing
+	OnStateChange(state int)
+	OnRMSData(rms float32)
+}
+
 // Pipeline orchestrates the flow of data from audio capture to text output
 type Pipeline struct {
 	audioEngine *audio.CaptureEngine
@@ -25,7 +34,8 @@ type Pipeline struct {
 	log         *slog.Logger
 	vadParams   audio.VADParams
 
-	onCompletion func() // Callback for when processing finishes
+	onCompletion func()        // Callback for when processing finishes
+	uiNotifier   StateNotifier // optional; nil means no UI
 
 	// Channels for data flow
 	audioChan chan []float32
@@ -33,10 +43,11 @@ type Pipeline struct {
 	wg        sync.WaitGroup
 
 	// State
-	isRecording bool
-	audioBuffer []float32
-	mu          sync.Mutex // Protects isRecording and audioBuffer
-	maxDuration string
+	isRecording    bool
+	isTranscribing bool // true while processSegment is running; blocks new recordings
+	audioBuffer    []float32
+	mu             sync.Mutex // Protects isRecording, isTranscribing, and audioBuffer
+	maxDuration    string
 }
 
 // NewPipeline creates a new processing pipeline
@@ -72,6 +83,30 @@ func (p *Pipeline) SetOnCompletion(callback func()) {
 	p.onCompletion = callback
 }
 
+// SetUINotifier installs a StateNotifier for UI state updates.
+// Must be called before Start().
+func (p *Pipeline) SetUINotifier(n StateNotifier) {
+	p.uiNotifier = n
+	// Forward RMS data from the audio engine to the notifier
+	if n != nil {
+		p.audioEngine.SetRMSCallback(func(rms float32) {
+			p.mu.Lock()
+			recording := p.isRecording
+			p.mu.Unlock()
+			if recording {
+				n.OnRMSData(rms)
+			}
+		})
+	}
+}
+
+// notifyState sends a state change to the UI notifier (nil-safe).
+func (p *Pipeline) notifyState(state int) {
+	if p.uiNotifier != nil {
+		p.uiNotifier.OnStateChange(state)
+	}
+}
+
 // Start begins the pipeline processing
 func (p *Pipeline) Start() error {
 	p.log.Debug("Starting pipeline")
@@ -96,7 +131,7 @@ func (p *Pipeline) StartRecording() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if p.isRecording {
+	if p.isRecording || p.isTranscribing {
 		return
 	}
 
@@ -108,6 +143,7 @@ func (p *Pipeline) StartRecording() {
 	p.isRecording = true
 	p.audioBuffer = nil // Clear buffer
 	p.log.Debug("Recording started")
+	p.notifyState(1) // StateRecording
 }
 
 // StopRecording stops accumulating and triggers processing
@@ -121,7 +157,9 @@ func (p *Pipeline) StopRecording() bool {
 	}
 
 	p.isRecording = false
+	p.isTranscribing = true
 	p.log.Debug("Recording stopped", "buffer_size", len(p.audioBuffer))
+	p.notifyState(2) // StateTranscribing
 
 	// Process the captured audio in a separate goroutine to not block
 	// Make a copy of the buffer
@@ -175,6 +213,8 @@ func (p *Pipeline) captureLoop() {
 				if len(p.audioBuffer) >= maxSamples {
 					p.log.Warn("Max recording duration reached, forcing stop", "limit", p.maxDuration)
 					p.isRecording = false
+					p.isTranscribing = true
+					p.notifyState(2) // StateTranscribing
 
 					// Copy and process immediately
 					bufferCopy := make([]float32, len(p.audioBuffer))
@@ -201,6 +241,10 @@ func (p *Pipeline) processSegment(samples []float32) {
 		if r := recover(); r != nil {
 			p.log.Error("Recovered from panic in processSegment", "error", r)
 		}
+		p.mu.Lock()
+		p.isTranscribing = false
+		p.mu.Unlock()
+		p.notifyState(0) // StateIdle
 		if p.onCompletion != nil {
 			p.onCompletion()
 		}

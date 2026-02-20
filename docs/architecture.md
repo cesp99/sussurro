@@ -2,15 +2,18 @@
 
 Sussurro is designed as a modular pipeline that processes audio input into refined text output. This document details the internal components and data flow.
 
+> **Platform note (v1.5):** The native overlay UI is currently **Linux only**. macOS runs in headless mode (`--no-ui`). The pipeline and AI engines are fully cross-platform.
+
 ## High-Level Pipeline
 
 The data flow follows this sequence:
 
-1.  **Hotkey Trigger**: User presses the configured hotkey (default: `Ctrl+Shift+Space`).
-2.  **Audio Capture**: Microphone input is recorded until the hotkey is released or silence is detected.
+1.  **Hotkey Trigger**: User presses the configured hotkey (default: `Ctrl+Shift+Space` on Linux).
+2.  **Audio Capture**: Microphone input is recorded; RMS levels are streamed to the overlay for the waveform animation.
 3.  **ASR (Automatic Speech Recognition)**: Raw audio is converted to text using **Whisper.cpp**.
 4.  **LLM Cleanup**: The raw transcription is processed by a Large Language Model (**Qwen 3 Sussurro**) to remove artifacts, filler words, and apply grammar corrections.
 5.  **Clipboard and Text Injection**: The cleaned text is written to the clipboard and pasted into the active application.
+6.  **UI Notification**: Each pipeline state change (idle → recording → transcribing → idle) is pushed to the overlay via the `StateNotifier` interface.
 
 ---
 
@@ -48,3 +51,33 @@ The data flow follows this sequence:
 ### 6. Input Injector (`internal/injection`)
 - **Library**: `github.com/micmonay/keybd_event`.
 - **Role**: Triggers the paste shortcut to insert the final text.
+
+---
+
+## UI Layer *(Linux, v1.5+)*
+
+The UI layer runs alongside the pipeline and provides visual feedback without blocking transcription.
+
+### Overlay Capsule (`internal/ui/overlay_linux.c`)
+- Implemented in pure C/CGO on top of **GTK3** and **Cairo**.
+- A pill-shaped floating window, always on top (`_NET_WM_STATE_ABOVE` on X11; wlr-layer-shell on Wayland if `gtk-layer-shell` is installed).
+- Three visual states driven by `StateNotifier` callbacks:
+  - **Idle** — 7 softly pulsing white dots
+  - **Recording** — 7 waveform bars scaled live by microphone RMS
+  - **Transcribing** — shimmer-animated "transcribing" label
+- Right-click context menu: **Open Settings** / **Quit**.
+- Global hotkey captured via GDK `XGrabKey` (X11) — bypasses the Go hotkey library to avoid main-thread conflicts.
+
+### Settings Window (`internal/ui/settings.go`)
+- Built with **`github.com/webview/webview_go`** (WebKit2GTK renderer on Linux).
+- Embeds HTML/CSS/JS assets at compile time; no external files required at runtime.
+- Exposes JS bindings back to Go for: model download with live progress and hotkey configuration.
+
+### System Tray (`internal/ui/app.go`)
+- Powered by **`github.com/getlantern/systray`**.
+- Arch Linux uses the `legacy_appindicator` build tag (`appindicator3-0.1`); Ubuntu/Fedora use the default Ayatana backend.
+- Menu: **Open Settings** / **Quit**.
+
+### Main Thread Ownership
+- In UI mode, `webview.Run()` owns the main OS thread (it calls `gtk_main` internally). All GTK calls from Go are marshalled via CGO or the webview dispatch queue.
+- In headless mode (`--no-ui`), `golang.design/x/mainthread` owns the main thread instead.
