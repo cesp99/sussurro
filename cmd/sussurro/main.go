@@ -167,8 +167,9 @@ func run() {
 			}
 			log.Warn("Wayland: configure keyboard shortcut (see docs/wayland.md)")
 		} else {
-			// X11 / macOS: register hotkey via GDK XGrabKey (no mainthread.Init needed).
-			log.Info("X11/macOS detected - using overlay hotkey")
+			// X11: register hotkey via GDK XGrabKey.
+			// macOS: registered via CGEventTap inside installOverlayHotkey (app_darwin.go).
+			log.Info("Using overlay hotkey")
 			uiMgr.InstallHotkey(cfg.Hotkey.Trigger,
 				func() { log.Info("Listening..."); pipe.StartRecording() },
 				func() { log.Info("Transcribing..."); pipe.StopRecording() },
@@ -202,7 +203,7 @@ func run() {
 		}
 		log.Warn("Wayland detected: Configure keyboard shortcut (see docs/wayland.md)")
 	} else {
-		log.Info("X11 detected - using global hotkeys")
+		log.Info("Using global hotkeys (X11 / macOS)")
 
 		hkHandler, err := hotkey.NewHandler(cfg.Hotkey.Trigger, log)
 		if err != nil {

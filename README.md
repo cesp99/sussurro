@@ -10,8 +10,6 @@ Sussurro is a fully local, open-source voice-to-text system with a built-in nati
 
 **New to Sussurro?** Start with the [Quick Start Guide](docs/quickstart.md) to get running in under 5 minutes.
 
-> **Platform note:** The native overlay UI is currently available on **Linux only**. macOS support is planned. The headless `--no-ui` mode works on both platforms.
-
 ## Overview
 
 Sussurro uses local AI models to ensure privacy and low latency:
@@ -20,12 +18,13 @@ Sussurro uses local AI models to ensure privacy and low latency:
 
 ## Features
 
-- **Built-in Native Overlay** *(Linux)*: A minimal, aesthetically clean floating capsule shows recording/transcribing state — always on top, no taskbar entry
-- **Settings UI** *(Linux)*: Dark-themed settings window accessible via system tray or right-click on the overlay
+- **Built-in Native Overlay**: A minimal, aesthetically clean floating capsule shows recording/transcribing state — always on top, no taskbar entry *(Linux & macOS)*
+- **Settings UI**: Dark-themed settings window accessible via system tray or right-click on the overlay *(Linux & macOS)*
 - **Smart Cleanup**: Removes filler words, handles self-corrections, prevents hallucinations
 - **Local Processing**: No data leaves your machine
 - **System-Wide**: Works in any application where you can type
 - **Flexible ASR**: Whisper Small (fast) or Large v3 Turbo (accurate), switchable from the UI
+- **Live Hotkey Config**: Change the global hotkey from Settings — takes effect instantly, no restart
 - **Headless Mode**: `--no-ui` flag for CLI/scripting use on any platform
 
 ## Documentation
@@ -101,25 +100,29 @@ sudo apt install wl-clipboard
 
 ---
 
-### macOS — Headless Mode Only
-
-The UI overlay is **not yet available on macOS**. Run Sussurro in headless mode:
+### macOS — UI Mode
 
 ```bash
 tar -xzf sussurro-macos-*.tar.gz
-cd sussurro-macos-*
+cd sussurro-*
 chmod +x sussurro
 xattr -d com.apple.quarantine sussurro   # remove quarantine
-./sussurro --no-ui
+./sussurro
 ```
 
-**Usage:** Hold `Cmd+Shift+Space` to talk, release to transcribe. Cleaned text is injected into the active application.
+The overlay capsule, settings window, system tray, and right-click context menu all work on macOS.
+
+**Usage:** Hold `Cmd+Shift+Space` (or any configured hotkey) to talk, release to transcribe. Cleaned text is injected into the active application.
+
+> **macOS Accessibility permission:** On first run, macOS will prompt you to grant Accessibility access so Sussurro can register a global hotkey (CGEventTap). Grant it in System Settings → Privacy & Security → Accessibility.
+
+To run without the UI: `./sussurro --no-ui`
 
 ---
 
-## UI: The Overlay Capsule *(Linux)*
+## UI: The Overlay Capsule
 
-When Sussurro runs on Linux, a sleek pill-shaped capsule appears at the bottom-center of your screen:
+When Sussurro runs (Linux or macOS), a sleek pill-shaped capsule appears at the bottom-center of your screen:
 
 | State | Appearance |
 |-------|-----------|
@@ -134,7 +137,7 @@ When Sussurro runs on Linux, a sleek pill-shaped capsule appears at the bottom-c
 | System tray | Click the Sussurro icon → **Open Settings** |
 | Right-click overlay | Right-click the capsule → **Open Settings** |
 
-The settings window lets you switch Whisper models, download models with a progress bar, change the global hotkey, and toggle auto-start.
+The settings window lets you switch Whisper models, download models with a live progress bar, and change the global hotkey. Hotkey changes take effect immediately — no restart required. The live hotkey recorder shows a real-time preview as you press keys.
 
 ---
 
@@ -164,7 +167,7 @@ The "Start at Login" toggle in Settings is present in the UI but is not yet impl
 |----------|--------|----------------|
 | Linux X11 | Hold `Ctrl+Shift+Space` | System tray or right-click capsule |
 | Linux Wayland | Toggle (press twice) | System tray or right-click capsule |
-| macOS *(headless)* | Hold `Cmd+Shift+Space` | — (no UI yet) |
+| macOS | Hold `Cmd+Shift+Space` | System tray or right-click capsule |
 
 ## Switching Whisper Models
 

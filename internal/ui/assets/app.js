@@ -176,45 +176,98 @@ function updateHotkeyDisplay(trigger) {
 }
 
 // ---- Record hotkey modal ----
-let _recordingHotkey = false;
+const MAX_HOTKEY_KEYS = 3;
+const MODIFIER_KEY_NAMES = new Set(['ctrl', 'shift', 'alt', 'super']);
+
+function keyNameFromEvent(e) {
+  switch (e.key) {
+    case 'Control': return 'ctrl';
+    case 'Shift':   return 'shift';
+    case 'Alt':     return 'alt';
+    case 'Meta':    return 'super';
+    default: {
+      const k = e.key.toLowerCase();
+      return k === ' ' ? 'space' : k;
+    }
+  }
+}
+
+function buildTriggerFromSet(keys) {
+  const mods = [...keys].filter(k =>  MODIFIER_KEY_NAMES.has(k));
+  const main = [...keys].filter(k => !MODIFIER_KEY_NAMES.has(k));
+  return [...mods, ...main].join('+');
+}
 
 function showRecordModal(currentTrigger) {
-  const modal = document.getElementById('hotkey-modal');
+  const modal   = document.getElementById('hotkey-modal');
+  const preview = document.getElementById('hotkey-modal-preview');
   if (!modal) return;
   modal.classList.add('visible');
-  _recordingHotkey = true;
 
-  const keyHandler = async (e) => {
-    e.preventDefault();
-    if (!_recordingHotkey) return;
+  const keysHeld = new Set();
+  let lastCombo  = '';
+  let finalized  = false;
 
-    const parts = [];
-    if (e.ctrlKey)  parts.push('ctrl');
-    if (e.shiftKey) parts.push('shift');
-    if (e.altKey)   parts.push('alt');
-    if (e.metaKey)  parts.push('super');
-
-    const k = e.key.toLowerCase();
-    if (!['control','shift','alt','meta'].includes(k)) {
-      parts.push(k === ' ' ? 'space' : k);
-      const trigger = parts.join('+');
-      _recordingHotkey = false;
-      document.removeEventListener('keydown', keyHandler);
-
-      const res = await window.saveHotkey(trigger);
-      modal.classList.remove('visible');
-      if (!res.startsWith('error')) {
-        updateHotkeyDisplay(trigger);
-      }
+  function updatePreview() {
+    if (!preview) return;
+    if (keysHeld.size === 0) {
+      preview.textContent = lastCombo || 'Press keys…';
+    } else {
+      preview.textContent = buildTriggerFromSet(keysHeld);
     }
-  };
-  document.addEventListener('keydown', keyHandler);
+  }
+
+  function cleanup() {
+    document.removeEventListener('keydown', downHandler);
+    document.removeEventListener('keyup',   upHandler);
+  }
+
+  function downHandler(e) {
+    e.preventDefault();
+    if (finalized) return;
+    const name = keyNameFromEvent(e);
+    // Cap at MAX_HOTKEY_KEYS — ignore extra keys if already full
+    if (keysHeld.size < MAX_HOTKEY_KEYS) keysHeld.add(name);
+    updatePreview();
+  }
+
+  async function upHandler(e) {
+    e.preventDefault();
+    if (finalized) return;
+    // Snapshot the full combo on the first key release
+    if (lastCombo === '' && keysHeld.size > 0) {
+      lastCombo = buildTriggerFromSet(keysHeld);
+    }
+    const name = keyNameFromEvent(e);
+    keysHeld.delete(name);
+    updatePreview();
+    // Finalize once all keys are released
+    if (keysHeld.size === 0 && lastCombo !== '') {
+      // Must contain at least one non-modifier key
+      const parts = lastCombo.split('+');
+      const hasMainKey = parts.some(p => !MODIFIER_KEY_NAMES.has(p));
+      if (!hasMainKey) {
+        // Only modifiers were pressed — reset and keep waiting
+        lastCombo = '';
+        updatePreview();
+        return;
+      }
+      finalized = true;
+      cleanup();
+      const res = await window.saveHotkey(lastCombo);
+      modal.classList.remove('visible');
+      if (!res.startsWith('error')) updateHotkeyDisplay(lastCombo);
+    }
+  }
+
+  document.addEventListener('keydown', downHandler);
+  document.addEventListener('keyup',   upHandler);
 
   const cancelBtn = document.getElementById('hotkey-modal-cancel');
   if (cancelBtn) {
     cancelBtn.onclick = () => {
-      _recordingHotkey = false;
-      document.removeEventListener('keydown', keyHandler);
+      finalized = true;
+      cleanup();
       modal.classList.remove('visible');
     };
   }

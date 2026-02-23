@@ -16,6 +16,10 @@ xcode-select --install   # Xcode Command Line Tools (provides clang, make, git)
 # Install Go: https://go.dev/dl/
 ```
 
+The macOS overlay uses **Cocoa**, **QuartzCore**, and **CoreVideo** — all part of Xcode Command Line Tools. No additional system packages are needed.
+
+> **Accessibility permission:** After the first run, macOS will prompt you to grant Accessibility access (System Settings → Privacy & Security → Accessibility). This allows Sussurro to register a global hotkey via CGEventTap.
+
 ### Linux (Arch/Manjaro)
 ```bash
 sudo pacman -S base-devel cmake git go
@@ -127,6 +131,8 @@ You only need to run `make deps` once (or after updating the submodules).
 ## First Run
 
 On first run Sussurro creates `~/.sussurro/config.yaml` and prompts you to download the required AI models into `~/.sussurro/models/`.
+
+The overlay capsule, settings window, system tray, and right-click context menu work on both **Linux** and **macOS** builds.
 
 You can also place model files manually and update the paths in `~/.sussurro/config.yaml`.
 

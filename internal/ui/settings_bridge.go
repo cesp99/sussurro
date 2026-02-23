@@ -61,6 +61,9 @@ func bindBridge(sw *settingsWindow) {
 			return fmt.Sprintf("error: %v", err)
 		}
 		mgr.cfg.Hotkey.Trigger = trigger
+		// Re-register the OS-level hotkey with the new trigger so it takes
+		// effect immediately without requiring a restart.
+		go mgr.reinstallHotkey(trigger)
 		return "ok"
 	})
 

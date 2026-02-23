@@ -83,6 +83,12 @@ func (h *Handler) listen() {
 	}
 }
 
+// ParseTrigger parses a string like "ctrl+shift+space" into modifiers and key.
+// Exported so platform-specific UI code can reuse it without duplicating the mapping.
+func ParseTrigger(trigger string) ([]hotkey.Modifier, hotkey.Key, error) {
+	return parseTrigger(trigger)
+}
+
 // parseTrigger parses a string like "ctrl+shift+space" into modifiers and key
 func parseTrigger(trigger string) ([]hotkey.Modifier, hotkey.Key, error) {
 	parts := strings.Split(strings.ToLower(trigger), "+")
@@ -96,7 +102,7 @@ func parseTrigger(trigger string) ([]hotkey.Modifier, hotkey.Key, error) {
 	// Map strings to hotkey constants
 	// Note: specific mapping depends on golang.design/x/hotkey definitions
 	// We'll implement a basic mapping here
-	
+
 	for i, part := range parts {
 		// Last part is the key
 		if i == len(parts)-1 {

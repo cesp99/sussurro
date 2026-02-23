@@ -237,7 +237,23 @@ kbd {
   width: 300px;
 }
 .modal h3 { font-size: 15px; margin-bottom: 8px; }
-.modal p  { font-size: 12px; color: var(--muted); }
+.modal p  { font-size: 12px; color: var(--muted); margin-bottom: 0; }
+.hotkey-modal-preview {
+  margin: 14px 0 4px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
 .modal-cancel {
   margin-top: 18px;
   font-size: 12px;

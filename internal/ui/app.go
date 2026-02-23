@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"os"
 	"sync"
 	"time"
 
@@ -20,6 +19,10 @@ type Manager struct {
 	rmsCh         chan float32
 	quitCh        chan struct{}
 	quitOnce      sync.Once
+
+	// Stored hotkey callbacks so the hotkey can be re-registered at runtime.
+	hotkeyOnDown func()
+	hotkeyOnUp   func()
 }
 
 // NewManager constructs the Manager.  Call Run() to start the event loop.
@@ -67,7 +70,7 @@ func (m *Manager) Quit() {
 		// GTK popup-menu nested event loops swallowing the quit signal.
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			os.Exit(0)
+			platformExit()
 		}()
 	})
 }
@@ -111,5 +114,16 @@ func (m *Manager) processUpdates() {
 // InstallHotkey registers a platform hotkey tied to the overlay.
 // Implemented in app_linux.go / app_darwin.go.
 func (m *Manager) InstallHotkey(trigger string, onDown, onUp func()) {
+	m.hotkeyOnDown = onDown
+	m.hotkeyOnUp = onUp
 	installOverlayHotkey(m.overlay, trigger, onDown, onUp)
+}
+
+// reinstallHotkey unregisters the current hotkey and registers a new one with
+// the given trigger string, reusing the original onDown/onUp callbacks.
+func (m *Manager) reinstallHotkey(trigger string) {
+	if m.hotkeyOnDown == nil || m.hotkeyOnUp == nil {
+		return
+	}
+	reinstallOverlayHotkey(m.overlay, trigger, m.hotkeyOnDown, m.hotkeyOnUp)
 }

@@ -2,6 +2,25 @@
 
 All notable changes to Sussurro will be documented in this file.
 
+## [1.5] - 2026-02-23
+
+### Added
+- **macOS full overlay UI**: NSPanel overlay (Cocoa + CoreVideo CVDisplayLink), settings window, system tray, and right-click context menu now all work on macOS (previously macOS was headless-only)
+- **Live hotkey reconfiguration**: changing the global hotkey in Settings takes effect immediately — no restart required (`reinstallOverlayHotkey` on both Linux and macOS)
+- **Linux X11 modifier support**: `alt`/`option` (X11 Mod1) and `super`/`meta`/`cmd` (X11 Mod4) hotkey modifiers now work on Linux (previously returned an error)
+- **macOS modifier aliases**: `super` and `meta` are now accepted as aliases for `cmd`/`command` on macOS
+- **Hotkey recording modal**: live key-combo preview as keys are held; finalises on full key release; requires at least one non-modifier key; supports up to 3 simultaneous keys
+- **Metal-safe exit on macOS**: `platformExit()` calls `overlay_terminate_macos()` which stops `CVDisplayLink` and calls `_exit(0)` to bypass C++ global destructors, preventing a Metal render-encoder assertion from `ggml-metal` on quit
+- **macOS settings window close fix**: `NSWindowDelegate` now hides the window instead of destroying it, preserving the WKWebView backing store across open/close cycles
+- **`ParseTrigger` exported** from `internal/hotkey` package so platform-specific UI code can reuse the modifier/key mapping without duplication
+
+### Changed
+- macOS overlay panel: window level raised to `NSStatusWindowLevel`, `hidesOnDeactivate=NO`, `NSWindowCollectionBehaviorFullScreenAuxiliary` (stays visible above full-screen apps), uses `orderFrontRegardless` instead of `makeKeyAndOrderFront` to avoid stealing keyboard focus
+- macOS hotkey now registered via CGEventTap in a goroutine after `[NSApp run]` is live (300 ms defer), replacing the previous no-op stub
+- `Manager.Quit()` uses `platformExit()` instead of `os.Exit(0)` directly
+- Log message: `"X11/macOS detected - using overlay hotkey"` → `"Using overlay hotkey"`
+- Log message: `"X11 detected - using global hotkeys"` → `"Using global hotkeys (X11 / macOS)"`
+
 ## [1.3] - 2026-02-16
 
 ### Changed

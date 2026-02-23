@@ -76,6 +76,25 @@ hotkey:
   trigger: "ctrl+shift+space" # The key combination to hold for recording
 ```
 
+The trigger string is `+`-separated: modifiers first, then the key. Modifier aliases:
+
+| Alias(es) | Linux X11 | macOS |
+|-----------|-----------|-------|
+| `ctrl`, `control` | `Control_L` | `⌃ Control` |
+| `shift` | `Shift_L` | `⇧ Shift` |
+| `alt`, `option` | Mod1 (`Alt_L`) | `⌥ Option` |
+| `cmd`, `command`, `super`, `meta` | Mod4 (`Super_L`) | `⌘ Command` |
+
+**Examples:**
+```yaml
+trigger: "ctrl+shift+space"   # default Linux
+trigger: "cmd+shift+space"    # default macOS
+trigger: "alt+shift+f2"       # any platform
+trigger: "super+space"        # Linux (Super/Windows key)
+```
+
+> **Note:** Hotkey changes made in the Settings window take effect immediately — no restart is required.
+
 ### Injection Settings
 ```yaml
 injection:

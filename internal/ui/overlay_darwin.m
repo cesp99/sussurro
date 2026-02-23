@@ -3,6 +3,12 @@
 #import <QuartzCore/QuartzCore.h>
 #include <math.h>
 
+/* Exported Go callbacks — defined by CGo in overlay_darwin.go */
+extern void overlayGoOpenSettings(void);
+extern void overlayGoQuit(void);
+
+static BOOL g_context_menu_enabled = NO;
+
 /* ---- State constants (must match Go) ---- */
 #define OVERLAY_STATE_IDLE          0
 #define OVERLAY_STATE_RECORDING     1
@@ -78,6 +84,7 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef link,
 {
     CVDisplayLinkStop(displayLink);
     CVDisplayLinkRelease(displayLink);
+    [super dealloc];
 }
 
 - (void)tick:(double)dt
@@ -93,6 +100,28 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef link,
 - (BOOL)isOpaque { return NO; }
 - (BOOL)wantsLayer { return YES; }
 
+- (void)rightMouseDown:(NSEvent *)event
+{
+    if (!g_context_menu_enabled) return;
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
+    [menu addItemWithTitle:@"Open Settings"
+                   action:@selector(menuOpenSettings)
+            keyEquivalent:@""];
+    [menu addItem:[NSMenuItem separatorItem]];
+    [menu addItemWithTitle:@"Quit"
+                   action:@selector(menuQuit)
+            keyEquivalent:@""];
+    for (NSMenuItem *item in menu.itemArray) {
+        item.target = self;
+    }
+    [NSApp activateIgnoringOtherApps:YES];
+    [self.window makeKeyWindow];
+    [NSMenu popUpContextMenu:menu withEvent:event forView:self];
+}
+
+- (void)menuOpenSettings { overlayGoOpenSettings(); }
+- (void)menuQuit         { overlayGoQuit(); }
+
 - (void)drawRect:(NSRect)dirtyRect
 {
     (void)dirtyRect;
@@ -106,7 +135,10 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef link,
     /* Clear */
     CGContextClearRect(ctx, bounds);
 
-    /* Pill background */
+    /* Pill background.
+       Use floor() to ensure 2*r never exceeds h due to IEEE-754 rounding.
+       CGPathAddRoundedRect asserts: 2*corner_radius <= side_length. */
+    r = floor(MIN(w, h) / 2.0);
     CGMutablePathRef path = CGPathCreateMutable();
     CGPathAddRoundedRect(path, NULL,
                          CGRectMake(0, 0, w, h), r, r);
@@ -154,7 +186,8 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef link,
         double x  = cx - bw / 2.0;
         double y  = cy - bh / 2.0;
         CGRect  rect = CGRectMake(x, y, bw, bh);
-        CGFloat ri = br;
+        /* Clamp radius so 2*ri <= MIN(bw, bh) — CGPath asserts otherwise. */
+        CGFloat ri = (CGFloat)MIN(br, MIN(bw, bh) / 2.0);
         CGMutablePathRef p = CGPathCreateMutable();
         CGPathAddRoundedRect(p, NULL, rect, ri, ri);
         CGContextAddPath(ctx, p);
@@ -165,35 +198,53 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef link,
 
 - (void)drawShimmer:(CGContextRef)ctx w:(double)w h:(double)h
 {
-    /* Draw "transcribing" text with a moving shimmer */
-    CGContextSetRGBFillColor(ctx, 1, 1, 1, 0.7);
+    NSDictionary *attrs = @{
+        NSFontAttributeName: [NSFont systemFontOfSize:14
+                                               weight:NSFontWeightMedium],
+        NSForegroundColorAttributeName: [NSColor whiteColor]
+    };
+    NSString *text = @"transcribing";
+    NSSize sz  = [text sizeWithAttributes:attrs];
+    NSPoint pt = NSMakePoint(floor((w - sz.width)  / 2.0),
+                             floor((h - sz.height) / 2.0));
 
-    NSAttributedString *str = [[NSAttributedString alloc]
-        initWithString:@"transcribing"
-            attributes:@{
-                NSFontAttributeName: [NSFont systemFontOfSize:14],
-                NSForegroundColorAttributeName: [NSColor colorWithWhite:1 alpha:0.7]
-            }];
+    /* Transparency layer so SourceIn clips gradient strictly to text ink. */
+    CGContextBeginTransparencyLayer(ctx, NULL);
 
-    NSSize sz = str.size;
-    NSPoint pt = NSMakePoint((w - sz.width) / 2.0,
-                             (h - sz.height) / 2.0);
-    [str drawAtPoint:pt];
+    /* Base text — dim, so the sweep contrast is visible. */
+    NSDictionary *dimAttrs = @{
+        NSFontAttributeName: [NSFont systemFontOfSize:14
+                                               weight:NSFontWeightMedium],
+        NSForegroundColorAttributeName: [NSColor colorWithWhite:1 alpha:0.28]
+    };
+    [text drawAtPoint:pt withAttributes:dimAttrs];
 
-    /* Shimmer gradient overlay */
-    double phase    = fmod(shimmerPhase, 1.5) / 1.5;
-    double sx       = pt.x - 40.0 + (sz.width + 80.0) * phase;
+    /* Wide soft band sweeping left → right over 2 seconds. */
+    CGContextSaveGState(ctx);
+    CGContextSetBlendMode(ctx, kCGBlendModeSourceIn);
+
+    double bandW  = sz.width * 0.85;               /* band ≈ 85 % of text width  */
+    double travel = sz.width + bandW;              /* enter fully, exit fully     */
+    double phase  = fmod(shimmerPhase / 2.0, 1.0); /* 2-second cycle             */
+    double cx     = pt.x - bandW * 0.5 + travel * phase;
+
+    /* Gradient stops: flat-zero → gentle rise → bright peak → gentle fall → flat-zero.
+       Keeping the bright zone narrow at the centre gives the "light gleam" feel. */
     NSGradient *grad = [[NSGradient alloc]
         initWithColors:@[
             [NSColor colorWithWhite:1 alpha:0.0],
-            [NSColor colorWithWhite:1 alpha:0.5],
+            [NSColor colorWithWhite:1 alpha:0.0],
+            [NSColor colorWithWhite:1 alpha:0.9],
+            [NSColor colorWithWhite:1 alpha:0.0],
             [NSColor colorWithWhite:1 alpha:0.0]
         ]
-        atLocations:(CGFloat[]){0.0, 0.5, 1.0}
+        atLocations:(CGFloat[]){0.0, 0.2, 0.5, 0.8, 1.0}
         colorSpace:[NSColorSpace genericRGBColorSpace]];
 
-    NSRect shimRect = NSMakeRect(sx - 20, pt.y, 40, sz.height);
-    [grad drawInRect:shimRect angle:0];
+    [grad drawInRect:NSMakeRect(cx - bandW * 0.5, pt.y, bandW, sz.height) angle:0];
+
+    CGContextRestoreGState(ctx);
+    CGContextEndTransparencyLayer(ctx);
 }
 
 @end
@@ -205,7 +256,7 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef link,
 @interface SussurroPanel : NSPanel
 @end
 @implementation SussurroPanel
-- (BOOL)canBecomeKeyWindow { return NO; }
+- (BOOL)canBecomeKeyWindow { return YES; }
 - (BOOL)canBecomeMainWindow { return NO; }
 @end
 
@@ -231,19 +282,25 @@ void* overlay_create_macos(void)
                     backing:NSBackingStoreBuffered
                       defer:NO];
 
-    g_panel.level             = NSFloatingWindowLevel + 1;
-    g_panel.opaque            = NO;
-    g_panel.hasShadow         = NO;
-    g_panel.backgroundColor   = [NSColor clearColor];
+    g_panel.level                    = NSStatusWindowLevel;
+    g_panel.opaque                   = NO;
+    g_panel.hasShadow                = NO;
+    g_panel.hidesOnDeactivate        = NO;
+    g_panel.backgroundColor          = [NSColor clearColor];
     g_panel.collectionBehavior =
         NSWindowCollectionBehaviorCanJoinAllSpaces |
-        NSWindowCollectionBehaviorStationary |
-        NSWindowCollectionBehaviorIgnoresCycle;
+        NSWindowCollectionBehaviorStationary       |
+        NSWindowCollectionBehaviorIgnoresCycle     |
+        NSWindowCollectionBehaviorFullScreenAuxiliary;
 
     g_view = [[SussurroView alloc] initWithFrame:
               NSMakeRect(0, 0, frame.size.width, frame.size.height)];
     [g_panel setContentView:g_view];
-    [g_panel makeKeyAndOrderFront:nil];
+    /* Defer the initial show until [NSApp run] is active.
+       Use orderFrontRegardless so the panel appears without stealing key focus. */
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [g_panel orderFrontRegardless];
+    });
 
     return (__bridge void *)g_panel;
 }
@@ -275,7 +332,7 @@ void overlay_push_rms_macos(float rms)
 void overlay_show_macos(void)
 {
     dispatch_async(dispatch_get_main_queue(), ^{
-        [g_panel makeKeyAndOrderFront:nil];
+        [g_panel orderFrontRegardless];
     });
 }
 
@@ -284,4 +341,26 @@ void overlay_hide_macos(void)
     dispatch_async(dispatch_get_main_queue(), ^{
         [g_panel orderOut:nil];
     });
+}
+
+void overlay_set_context_menu_callbacks_macos(void)
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        g_context_menu_enabled = YES;
+    });
+}
+
+/* Tear down the overlay cleanly and terminate the process without running
+   C++ global destructors (which trigger a Metal render-encoder assertion
+   inside whisper.cpp's ggml-metal when called via os.Exit -> C exit()). */
+void overlay_terminate_macos(void)
+{
+    if (g_view) {
+        CVDisplayLinkStop(g_view->displayLink);
+    }
+    if (g_panel) {
+        [g_panel orderOut:nil];
+    }
+    /* _exit() skips atexit/C++ destructors, preventing the Metal assertion. */
+    _exit(0);
 }

@@ -3,7 +3,7 @@
 package ui
 
 /*
-#cgo CFLAGS: -x objective-c
+#cgo CFLAGS: -x objective-c -Wno-deprecated-declarations
 #cgo LDFLAGS: -framework Cocoa -framework QuartzCore -framework CoreVideo
 
 extern void* overlay_create_macos(void);
@@ -11,8 +11,37 @@ extern void  overlay_set_state_macos(int state);
 extern void  overlay_push_rms_macos(float rms);
 extern void  overlay_show_macos(void);
 extern void  overlay_hide_macos(void);
+extern void  overlay_set_context_menu_callbacks_macos(void);
+extern void  overlay_terminate_macos(void);
 */
 import "C"
+
+var (
+	contextMenuOpenSettings func()
+	contextMenuQuit         func()
+)
+
+//export overlayGoOpenSettings
+func overlayGoOpenSettings() {
+	if contextMenuOpenSettings != nil {
+		contextMenuOpenSettings()
+	}
+}
+
+//export overlayGoQuit
+func overlayGoQuit() {
+	if contextMenuQuit != nil {
+		contextMenuQuit()
+	}
+}
+
+// overlaySetContextMenuCallbacks stores the Go callbacks and signals ObjC that
+// right-click context menu is active.
+func overlaySetContextMenuCallbacks(openSettings, quit func()) {
+	contextMenuOpenSettings = openSettings
+	contextMenuQuit = quit
+	C.overlay_set_context_menu_callbacks_macos()
+}
 
 type darwinOverlay struct{}
 
@@ -39,4 +68,12 @@ func (o *darwinOverlay) PushRMS(rms float32) {
 
 func (o *darwinOverlay) Close() {
 	o.Hide()
+}
+
+// platformExit stops the CVDisplayLink, hides the overlay, then calls _exit()
+// to terminate without running C++ global destructors.  This avoids the
+// whisper.cpp ggml-metal render-encoder assertion that fires when the normal
+// C exit() path destroys Metal objects while they are still in use.
+func platformExit() {
+	C.overlay_terminate_macos()
 }

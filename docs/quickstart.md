@@ -36,7 +36,9 @@ sudo dnf install gtk3 webkit2gtk4.1 libappindicator-gtk3
 ```
 
 ### macOS
-No extra dependencies required.
+No extra dependencies required. The overlay capsule, settings window, system tray, and right-click context menu all work natively.
+
+> **Accessibility permission:** On first run macOS will ask you to grant Accessibility access (System Settings → Privacy & Security → Accessibility). This is required for the global hotkey (CGEventTap).
 
 ## Step 3: Download Sussurro
 
@@ -64,7 +66,7 @@ Follow the prompts to choose and download the AI models:
 - **Whisper Large v3 Turbo** (~1.62 GB) — slower, best accuracy
 - **Qwen 3 Sussurro LLM** (~1.28 GB) — always required
 
-After download completes, the overlay capsule appears at the bottom of your screen.
+After download completes, the overlay capsule appears at the bottom of your screen on both Linux and macOS.
 
 > **Tip:** Switch Whisper model any time via the Settings window or `./sussurro --whisper`.
 
@@ -89,7 +91,7 @@ See [wayland.md](wayland.md) for config file snippets.
 ## Step 6: Test It
 
 1. Open any text editor and click inside it
-2. **X11/macOS:** Hold `Ctrl+Shift+Space` (or `Cmd+Shift+Space`), speak, release
+2. **Linux X11 / macOS:** Hold the configured hotkey (default `Ctrl+Shift+Space` on Linux, `Cmd+Shift+Space` on macOS), speak, release
 3. **Wayland:** Press once, speak, press again
 4. Watch the capsule animate — then text appears
 
@@ -101,7 +103,8 @@ Open the Settings window:
 
 From Settings you can:
 - Switch or download Whisper models with a live progress bar
-- Change the global hotkey (X11/macOS)
+- Change the global hotkey (X11 / macOS) — takes effect immediately, no restart needed
+  - Hold up to 3 keys in the recorder, then release them all to save
 
 ## Troubleshooting
 
@@ -115,8 +118,11 @@ Right-click the capsule at the bottom of your screen and choose **Open Settings*
 ### "clipboard failed" error
 Wayland: install `wl-clipboard` (see Step 2).
 
-### Hotkey doesn't work (X11/macOS)
-Another app may have grabbed the hotkey. Change it via Settings → Global Hotkey, then relaunch.
+### Hotkey doesn't work (X11)
+Another app may have grabbed the hotkey. Change it via Settings → Global Hotkey, then the new hotkey activates immediately.
+
+### Hotkey doesn't work (macOS)
+Check that Sussurro has Accessibility permission: System Settings → Privacy & Security → Accessibility. If it was recently added to the list, toggle it off and on, then relaunch.
 
 ### Hotkey doesn't work (Wayland)
 Complete Step 5. Test the trigger manually:
@@ -130,11 +136,11 @@ echo toggle | nc -U /run/user/$(id -u)/sussurro.sock
 
 ## Daily Usage
 
-**X11/macOS:**
+**Linux X11 / macOS:**
 1. Launch Sussurro from a terminal (`./sussurro`)
 2. Hold hotkey anywhere you can type → speak → release → text appears
 
-**Wayland:**
+**Linux Wayland:**
 1. Launch from a terminal, then press hotkey once to start recording → speak → press again to stop → text appears
 
 To stop manually: right-click the capsule → **Quit**, or click Quit in the tray menu.
