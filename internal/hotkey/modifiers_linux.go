@@ -4,10 +4,12 @@ package hotkey
 
 import (
 	"fmt"
+
 	"golang.design/x/hotkey"
 )
 
-// parseModifier parses a modifier string to hotkey.Modifier for Linux
+// parseModifier parses a modifier string to hotkey.Modifier for Linux (X11).
+// On X11: Mod1 is conventionally Alt, Mod4 is conventionally Super/Windows key.
 func parseModifier(part string) (hotkey.Modifier, error) {
 	switch part {
 	case "ctrl", "control":
@@ -15,11 +17,11 @@ func parseModifier(part string) (hotkey.Modifier, error) {
 	case "shift":
 		return hotkey.ModShift, nil
 	case "alt", "option":
-		// Note: Alt modifier support may vary on Linux
-		return 0, fmt.Errorf("alt modifier not fully supported on Linux, use ctrl+shift instead")
+		// Mod1 = Alt_L on virtually all X11 systems
+		return hotkey.Mod1, nil
 	case "cmd", "command", "super", "meta":
-		// Note: Cmd/Super modifier support may vary on Linux
-		return 0, fmt.Errorf("cmd/super modifier not fully supported on Linux, use ctrl+shift instead")
+		// Mod4 = Super_L (Windows/Meta key) on virtually all X11 systems
+		return hotkey.Mod4, nil
 	default:
 		return 0, fmt.Errorf("unknown modifier: %s", part)
 	}

@@ -32,3 +32,8 @@ models/
 *.log
 /sussurro
 /release
+
+# UI build helpers
+.build-compat/
+
+commit.txt

@@ -8,7 +8,64 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
+
+// ProgressCallback is called periodically during model downloads.
+// pct is 0–100; downloaded and total are byte counts.
+type ProgressCallback func(name string, pct float64, downloaded, total int64)
+
+var (
+	progressMu sync.Mutex
+	progressCB ProgressCallback
+)
+
+// SetProgressCallback installs a callback that receives download progress.
+// Pass nil to clear. Safe to call from any goroutine.
+func SetProgressCallback(cb ProgressCallback) {
+	progressMu.Lock()
+	progressCB = cb
+	progressMu.Unlock()
+}
+
+// DownloadModel downloads a model file from url to destPath with the given
+// display name.  Progress is reported via the installed ProgressCallback if any.
+func DownloadModel(url, destPath, name string) error {
+	return downloadFile(url, destPath, name)
+}
+
+// SetActiveModel updates config.yaml to use the given model ID as the active
+// ASR model.  modelID is one of: "whisper-small", "whisper-large-v3-turbo".
+func SetActiveModel(modelID string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	modelsDir := filepath.Join(homeDir, ".sussurro", "models")
+	configFile := filepath.Join(homeDir, ".sussurro", "config.yaml")
+
+	configBytes, err := os.ReadFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	var newPath string
+	switch modelID {
+	case "whisper-small":
+		newPath = filepath.Join(modelsDir, fileASRSmall)
+	case "whisper-large-v3-turbo":
+		newPath = filepath.Join(modelsDir, fileASRLarge)
+	default:
+		return fmt.Errorf("unknown model ID: %s", modelID)
+	}
+
+	// Replace either known ASR path with the new one
+	updated := string(configBytes)
+	updated = strings.ReplaceAll(updated, filepath.Join(modelsDir, fileASRSmall), newPath)
+	updated = strings.ReplaceAll(updated, filepath.Join(modelsDir, fileASRLarge), newPath)
+
+	return os.WriteFile(configFile, []byte(updated), 0644)
+}
 
 const (
 	defaultConfigTemplate = `app:
@@ -386,6 +443,19 @@ func downloadFile(url, filepath, name string) error {
 	return err
 }
 
+func (pr *progressReader) invokeCallback() {
+	progressMu.Lock()
+	cb := progressCB
+	progressMu.Unlock()
+	if cb != nil {
+		pct := 0.0
+		if pr.Total > 0 {
+			pct = float64(pr.Current) / float64(pr.Total) * 100
+		}
+		cb(pr.Name, pct, pr.Current, pr.Total)
+	}
+}
+
 type progressReader struct {
 	io.Reader
 	Total   int64
@@ -407,6 +477,7 @@ func (pr *progressReader) Read(p []byte) (int, error) {
 		} else {
 			fmt.Printf("\rDownloading %s: %.1f MB", pr.Name, float64(pr.Current)/1024/1024)
 		}
+		pr.invokeCallback()
 	}
 
 	return n, err

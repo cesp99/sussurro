@@ -1,191 +1,187 @@
 # Sussurro
 
-[![Version 1.3](https://img.shields.io/badge/Version-1.3-black?style=flat)](https://github.com/cesp99/sussurro/releases)
+[![Version 1.6](https://img.shields.io/badge/Version-1.6-black?style=flat)](https://github.com/cesp99/sussurro/releases)
 [![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-black?style=flat)](LICENSE)
 [![Go 1.24+](https://img.shields.io/badge/Go-1.24+-black?style=flat&logo=go&logoColor=white)](https://golang.org)
 [![Linux](https://img.shields.io/badge/Linux-black?style=flat&logo=linux&logoColor=white)](https://github.com/cesp99/sussurro)
 [![macOS](https://img.shields.io/badge/macOS-black?style=flat&logo=apple&logoColor=white)](https://github.com/cesp99/sussurro)
 
-Sussurro is a fully local, open-source, cross-platform CLI voice-to-text system that acts as a system-wide AI dictation layer. It transforms speech into clean, formatted, context-aware text injected into any application.
+Sussurro is a fully local, open-source voice-to-text system with a built-in native overlay UI. It transforms speech into clean, formatted, context-aware text and injects it into any application — entirely on your machine.
 
 **New to Sussurro?** Start with the [Quick Start Guide](docs/quickstart.md) to get running in under 5 minutes.
 
 ## Overview
 
-Sussurro uses local AI models to ensure privacy and low latency. It combines:
-- **Whisper.cpp** for automatic speech recognition (ASR).
-- **LLMs (Qwen 3 Sussurro)** for intelligent text cleanup, removing filler words, and fixing grammar errors.
+Sussurro uses local AI models to ensure privacy and low latency:
+- **Whisper.cpp** for automatic speech recognition (ASR)
+- **Qwen 3 Sussurro** (fine-tuned LLM) for intelligent text cleanup
 
 ## Features
 
-- **CLI-First**: Lightweight command-line interface controlled by configuration files.
-- **Smart Cleanup**:
-    - **Filler Removal**: Automatically removes "umm", "ah", "like".
-    - **Self-Correction**: Handles speech repairs (e.g., "I want blue... no red" -> "I want red").
-    - **Guardrails**: Algorithmic checks to ensure accurate transcription and prevent hallucinations.
-- **Local Processing**: No data leaves your machine.
-- **System-Wide**: Works in any application where you can type.
-- **Configurable**: Load custom configs at runtime.
-- **Cross-Platform**: Designed for macOS, Windows and Linux.
-- **Flexible ASR**: Choose between Whisper Small (fast) or Whisper Large v3 Turbo (accurate) at setup or later.
+- **Built-in Native Overlay**: A minimal, aesthetically clean floating capsule shows recording/transcribing state — always on top, no taskbar entry *(Linux & macOS)*
+- **Settings UI**: Dark-themed settings window accessible via system tray or right-click on the overlay *(Linux & macOS)*
+- **Smart Cleanup**: Removes filler words, handles self-corrections, prevents hallucinations
+- **Local Processing**: No data leaves your machine
+- **System-Wide**: Works in any application where you can type
+- **Flexible ASR**: Whisper Small (fast) or Large v3 Turbo (accurate), switchable from the UI
+- **Live Hotkey Config**: Change the global hotkey from Settings — takes effect instantly, no restart
+- **Headless Mode**: `--no-ui` flag for CLI/scripting use on any platform
 
 ## Documentation
 
-*   [**Quick Start**](docs/quickstart.md): Get up and running in under 5 minutes (recommended for first-time users).
-*   [**Dependencies**](docs/dependencies.md): System requirements and package installation for your platform.
-*   [**Wayland Setup**](docs/wayland.md): Setup guide for Wayland users (one-time configuration required).
-*   [**Configuration**](docs/configuration.md): Detailed guide on `default.yaml` and environment variables.
-*   [**Architecture**](docs/architecture.md): Learn how the audio pipeline, ASR, and LLM engines work together.
-*   [**Compilation**](docs/compilation.md): Instructions for building from source.
+- [**Quick Start**](docs/quickstart.md): Get up and running in under 5 minutes
+- [**Dependencies**](docs/dependencies.md): System requirements and package installation
+- [**Wayland Setup**](docs/wayland.md): One-time configuration for Wayland users
+- [**Configuration**](docs/configuration.md): Detailed guide on `config.yaml` and environment variables
+- [**Architecture**](docs/architecture.md): How the audio pipeline, ASR, and LLM engines work
+- [**Compilation**](docs/compilation.md): Building from source (CLI and UI builds)
 
 ## Getting Started
 
-Choose your platform below for specific instructions:
+### Linux (Arch/Manjaro) — UI Mode
 
-### macOS
-
-**Using Prebuilt Binary:**
-1. Download `sussurro-macos-<arch>.tar.gz` from the [GitHub Releases](https://github.com/cesp99/sussurro/releases) page
-2. Extract and prepare:
-   ```bash
-   tar -xzf sussurro-macos-*.tar.gz
-   cd sussurro-macos-<arch>
-   chmod +x sussurro trigger.sh
-   xattr -d com.apple.quarantine sussurro  # Remove macOS quarantine
-   ```
-3. Run:
-   ```bash
-   ./sussurro
-   ```
-   On first run, Sussurro will guide you through model download
-
-**Usage:** Hold `Cmd+Shift+Space` to talk, release to transcribe. Works immediately, no configuration needed.
-
-**Building from Source:** See [Compilation Guide](docs/compilation.md)
-
----
-
-### Linux (Arch/Manjaro)
-
-**Step 1: Install Dependencies**
+**Step 1: Install UI dependencies**
 ```bash
-# For Wayland users (GNOME Wayland, KDE Wayland, Sway, Hyprland)
+# Core UI libraries (GTK3, WebKit, AppIndicator)
+sudo pacman -S gtk3 webkit2gtk-4.1 libappindicator-gtk3
+
+# Optional: wlr-layer-shell for true Wayland overlay
+sudo pacman -S gtk-layer-shell
+
+# Wayland clipboard support
 sudo pacman -S wl-clipboard
 
-# For X11 users (optional, for window context detection)
+# X11 optional helpers
 sudo pacman -S xdotool xorg-xprop
 ```
 
 **Step 2: Get Sussurro**
 
-**Option A: Prebuilt Binary**
-1. Download `sussurro-linux-<arch>.tar.gz` from [GitHub Releases](https://github.com/cesp99/sussurro/releases)
-2. Extract and prepare:
-   ```bash
-   tar -xzf sussurro-linux-*.tar.gz
-   cd sussurro-linux-<arch>
-   chmod +x sussurro trigger.sh
-   ```
-   Package includes: `sussurro` binary, `trigger.sh` script (for Wayland), example config
-3. Run:
-   ```bash
-   ./sussurro
-   ```
+Option A — prebuilt binary:
+```bash
+tar -xzf sussurro-linux-*.tar.gz
+cd sussurro-linux-*
+chmod +x sussurro
+```
 
-**Option B: Build from Source**
+Option B — build from source:
 ```bash
 git clone https://github.com/cesp99/sussurro.git
 cd sussurro
-make build
-./bin/sussurro
+make build-ui        # builds with overlay + settings UI
 ```
 
-**Step 3: First Run Setup**
-- Sussurro will create `~/.sussurro/config.yaml`
-- Follow prompts to download AI models
-
-**Step 4: Configure Keyboard Shortcut (Wayland Only)**
-
-If using **Wayland** (check with `echo $XDG_SESSION_TYPE`):
-
-**GNOME:**
-1. Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts
-2. Click "+" to add new
-3. Name: "Sussurro Voice Input"
-4. Command: `/full/path/to/extracted/folder/trigger.sh`
-5. Set shortcut: `Ctrl+Shift+Space`
-
-**KDE Plasma:**
-1. System Settings → Shortcuts → Custom Shortcuts
-2. Right-click → New → Global Shortcut → Command/URL
-3. Trigger tab: Set `Ctrl+Shift+Space`
-4. Action tab: `/full/path/to/extracted/folder/trigger.sh`
-
-**Sway/Hyprland:** See [Wayland Setup Guide](docs/wayland.md)
-
-**Usage:**
-- **X11**: Hold `Ctrl+Shift+Space`, talk, release (works immediately)
-- **Wayland**: Press once to start, talk, press again to stop
-
----
-
-### Linux (Ubuntu/Debian)
-
-**Step 1: Install Dependencies**
+**Step 3: First run** — open a terminal and run:
 ```bash
-# For Wayland users
-sudo apt install wl-clipboard
+./sussurro        # prebuilt
+# or
+./bin/sussurro    # built from source
+```
+Follow the prompts to download the AI models.
 
-# For X11 users (optional)
-sudo apt install xdotool x11-utils
+**Step 4 (Wayland only):** Configure a keyboard shortcut — see [Wayland Setup](docs/wayland.md).
+
+---
+
+### Linux (Ubuntu/Debian) — UI Mode
+
+**Step 1: Install UI dependencies**
+```bash
+sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0 libayatana-appindicator3-1
+
+# Optional: wlr-layer-shell overlay (Ubuntu 22.04+)
+sudo apt install libgtk-layer-shell0
+
+# Wayland clipboard
+sudo apt install wl-clipboard
 ```
 
-**Step 2-4:** Same as Arch instructions above
+**Step 2–4:** Same as Arch above (use `make build-ui`).
 
 ---
 
-### Linux (Other Distributions)
+### macOS — UI Mode
 
-See [dependencies.md](docs/dependencies.md) for your distribution's package manager commands, then follow the Arch instructions above.
+```bash
+tar -xzf sussurro-macos-*.tar.gz
+cd sussurro-*
+chmod +x sussurro
+xattr -d com.apple.quarantine sussurro   # remove quarantine
+./sussurro
+```
+
+The overlay capsule, settings window, system tray, and right-click context menu all work on macOS.
+
+**Usage:** Hold `Cmd+Shift+Space` (or any configured hotkey) to talk, release to transcribe. Cleaned text is injected into the active application.
+
+> **macOS Accessibility permission:** On first run, macOS will prompt you to grant Accessibility access so Sussurro can register a global hotkey (CGEventTap). Grant it in System Settings → Privacy & Security → Accessibility.
+
+To run without the UI: `./sussurro --no-ui`
 
 ---
 
-### Windows
+## UI: The Overlay Capsule
 
-**Status:** Not yet tested. Contributions welcome.
+When Sussurro runs (Linux or macOS), a sleek pill-shaped capsule appears at the bottom-center of your screen:
+
+| State | Appearance |
+|-------|-----------|
+| **Idle** | 7 softly pulsing white dots |
+| **Recording** | 7 waveform bars animated by your voice |
+| **Transcribing** | "transcribing" text with a shimmer effect |
+
+**Accessing Settings:**
+
+| Method | How |
+|--------|-----|
+| System tray | Click the Sussurro icon → **Open Settings** |
+| Right-click overlay | Right-click the capsule → **Open Settings** |
+
+The settings window lets you switch Whisper models, download models with a live progress bar, and change the global hotkey. Hotkey changes take effect immediately — no restart required. The live hotkey recorder shows a real-time preview as you press keys.
+
+---
+
+## Headless / CLI Mode
+
+If you don't want the overlay (e.g. for scripting or low-resource environments):
+
+```bash
+./sussurro --no-ui
+```
+
+This runs Sussurro exactly as before — terminal output only, no overlay, no tray.
+
+---
+
+## Known Limitations
+
+### "Start at Login" toggle
+
+The "Start at Login" toggle in Settings is present in the UI but is not yet implemented. It will be addressed in a future release.
 
 ---
 
 ## Quick Reference
 
-| Platform | Hotkey Behavior | Setup Required |
-|----------|----------------|----------------|
-| macOS | Hold to talk | None |
-| Linux X11 | Hold to talk | None |
-| Linux Wayland | Toggle (press twice) | One-time DE shortcut |
-
-**Troubleshooting:** See [dependencies.md](docs/dependencies.md)
+| Platform | Hotkey | Access Settings |
+|----------|--------|----------------|
+| Linux X11 | Hold `Ctrl+Shift+Space` | System tray or right-click capsule |
+| Linux Wayland | Toggle (press twice) | System tray or right-click capsule |
+| macOS | Hold `Cmd+Shift+Space` | System tray or right-click capsule |
 
 ## Switching Whisper Models
 
-You can switch the Whisper ASR model at any time using `--whisper` (or `--wsp`):
+Via the Settings UI (recommended) — or from the command line:
 
 ```bash
-./sussurro --whisper
-# or
-./sussurro --wsp
+./sussurro --whisper   # (or --wsp)
 ```
-
-This opens an interactive menu to switch between:
 
 | Model | Size | Best for |
 |-------|------|----------|
-| Whisper Small | 488 MB | Faster transcription, lower RAM usage |
-| Whisper Large v3 Turbo | 1.62 GB | Higher accuracy, slower |
-
-If the selected model isn't already downloaded, Sussurro will offer to download it.
-The model choice is also prompted during first-run setup.
+| Whisper Small | ~488 MB | Faster, lower RAM |
+| Whisper Large v3 Turbo | ~1.62 GB | Higher accuracy |
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPLv3) - see the [LICENSE](LICENSE) file for details.
+GNU General Public License v3.0 — see [LICENSE](LICENSE).

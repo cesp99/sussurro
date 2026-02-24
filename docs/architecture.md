@@ -2,15 +2,18 @@
 
 Sussurro is designed as a modular pipeline that processes audio input into refined text output. This document details the internal components and data flow.
 
+The overlay UI, settings window, system tray, and global hotkey all work on **Linux and macOS**. The headless `--no-ui` mode is available on both platforms. The pipeline and AI engines are fully cross-platform.
+
 ## High-Level Pipeline
 
 The data flow follows this sequence:
 
-1.  **Hotkey Trigger**: User presses the configured hotkey (default: `Ctrl+Shift+Space`).
-2.  **Audio Capture**: Microphone input is recorded until the hotkey is released or silence is detected.
+1.  **Hotkey Trigger**: User presses the configured hotkey (default: `Ctrl+Shift+Space` on Linux, `Cmd+Shift+Space` on macOS).
+2.  **Audio Capture**: Microphone input is recorded; RMS levels are streamed to the overlay for the waveform animation.
 3.  **ASR (Automatic Speech Recognition)**: Raw audio is converted to text using **Whisper.cpp**.
 4.  **LLM Cleanup**: The raw transcription is processed by a Large Language Model (**Qwen 3 Sussurro**) to remove artifacts, filler words, and apply grammar corrections.
 5.  **Clipboard and Text Injection**: The cleaned text is written to the clipboard and pasted into the active application.
+6.  **UI Notification**: Each pipeline state change (idle → recording → transcribing → idle) is pushed to the overlay via the `StateNotifier` interface.
 
 ---
 
@@ -48,3 +51,58 @@ The data flow follows this sequence:
 ### 6. Input Injector (`internal/injection`)
 - **Library**: `github.com/micmonay/keybd_event`.
 - **Role**: Triggers the paste shortcut to insert the final text.
+
+---
+
+## UI Layer *(Linux & macOS)*
+
+The UI layer runs alongside the pipeline and provides visual feedback without blocking transcription.
+
+### Overlay Capsule
+
+**Linux** (`internal/ui/overlay_linux.c`)
+- Implemented in pure C/CGO on top of **GTK3** and **Cairo**.
+- A pill-shaped floating window, always on top (`_NET_WM_STATE_ABOVE` on X11; wlr-layer-shell on Wayland if `gtk-layer-shell` is installed).
+- Global hotkey captured via GDK `XGrabKey` (X11).
+- **1.5 px white border** rendered with Cairo as an inset pill stroke (`rgba(1, 1, 1, 0.30)`).
+
+**macOS** (`internal/ui/overlay_darwin.m`)
+- Implemented in Objective-C on top of **Cocoa** and **CoreVideo** (`CVDisplayLink` for smooth 60 fps animation).
+- `NSPanel` at `NSStatusWindowLevel` with `hidesOnDeactivate=NO` and `NSWindowCollectionBehaviorFullScreenAuxiliary` so it stays visible above full-screen apps.
+- Global hotkey registered via **`golang.design/x/hotkey`** (CGEventTap) in `app_darwin.go`, after `[NSApp run]` is active.
+- Uses `orderFrontRegardless` instead of `makeKeyAndOrderFront` to avoid stealing keyboard focus.
+- **Frosted-glass backdrop**: an `NSVisualEffectView` (`NSVisualEffectMaterialHUDWindow`, `NSVisualEffectBlendingModeBehindWindow`, `NSAppearanceNameVibrantDark`) sits below the drawing view and is masked to the pill silhouette via a `CAShapeLayer`, so the OS renders a real blur of whatever is behind the window.
+- **1.5 px white border** drawn as an inset pill stroke (`rgba(1, 1, 1, 0.25)`) over a light dark tint (`rgba(0, 0, 0, 0.28)`).
+
+**Shared visual states** (both platforms):
+- **Idle** — 7 softly pulsing white dots
+- **Recording** — 7 waveform bars scaled live by microphone RMS
+- **Transcribing** — shimmer-animated "transcribing" label
+- Right-click context menu on the capsule: **Open Settings** / **Quit**.
+
+### Global Hotkey (`internal/hotkey`, `internal/ui/app_*.go`)
+- **Linux X11**: registered via GDK `XGrabKey` through the overlay window. Supported modifiers: `ctrl`, `shift`, `alt` (X11 Mod1), `super`/`meta`/`cmd` (X11 Mod4).
+- **macOS**: registered via `golang.design/x/hotkey` (CGEventTap) in a background goroutine after `[NSApp run]` initialises. Supported modifiers: `ctrl`, `shift`, `alt`/`option`, `cmd`/`command`/`super`/`meta`.
+- **Live reconfiguration**: `Manager.reinstallHotkey()` unregisters the current hotkey and registers the new one immediately when the user saves a new trigger in Settings. No restart required.
+
+### Settings Window (`internal/ui/settings.go`)
+- Built with **`github.com/webview/webview_go`** (WebKit2GTK on Linux, WKWebView on macOS).
+- Embeds HTML/CSS/JS assets at compile time; no external files required at runtime.
+- JS bindings exposed to Go: model download with live progress, hotkey configuration, model switching.
+- **Hotkey recording modal**: displays a live preview of the key combination as keys are held, and finalises the combo on key release. Requires at least one non-modifier key.
+- **Model switch UX**: selecting a different Whisper model writes the new path to `~/.sussurro/config.yaml` and updates `mgr.cfg` in memory (so the active badge reflects the new selection immediately). A persistent blue banner prompts the user to restart to load the new model; the running pipeline is not interrupted.
+- On macOS, `NSWindowDelegate` intercepts the close button to hide (not destroy) the window, preserving the WebKit backing store across open/close cycles.
+
+### System Tray (`internal/ui/app.go`)
+- Powered by **`github.com/getlantern/systray`**.
+- Arch Linux uses the `legacy_appindicator` build tag (`appindicator3-0.1`); Ubuntu/Fedora use the default Ayatana backend. macOS uses the native `NSStatusItem`.
+- Menu: **Open Settings** / **Quit**.
+
+### Process Exit
+- **Linux** (`quit_linux.go`): calls `os.Exit(0)` — safe because there are no Metal/CoreGraphics global destructors.
+- **macOS** (`overlay_darwin.go`): calls `overlay_terminate_macos()` which stops the `CVDisplayLink`, hides the panel, then calls `_exit(0)` to skip C++ global destructors. This avoids a Metal render-encoder assertion inside `whisper.cpp`'s `ggml-metal` that fires when `os.Exit` triggers the normal C `exit()` path while Metal objects are still in use.
+
+### Main Thread Ownership
+- In UI mode on Linux, `webview.Run()` owns the main OS thread (calls `gtk_main` internally).
+- In UI mode on macOS, `[NSApp run]` (called inside `webview.Run()`) owns the main OS thread.
+- In headless mode (`--no-ui`), `golang.design/x/mainthread` owns the main thread so that `golang.design/x/hotkey` works correctly on X11 and macOS.
