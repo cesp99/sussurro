@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"time"
 
 	"github.com/cesp99/sussurro/internal/config"
 	"github.com/cesp99/sussurro/internal/setup"
@@ -78,8 +77,8 @@ func bindBridge(sw *settingsWindow) {
 			if url == "" {
 				return
 			}
-			setup.SetProgressCallback(func(n string, pct float64, _, _ int64) {
-				sw.pushDownloadProgress(n, pct)
+			setup.SetProgressCallback(func(_ string, pct float64, _, _ int64) {
+				sw.pushDownloadProgress(modelID, pct)
 			})
 			defer setup.SetProgressCallback(nil)
 			if err := setup.DownloadModel(url, dest, name); err != nil {
@@ -104,22 +103,17 @@ func bindBridge(sw *settingsWindow) {
 		if err := setup.SetActiveModel(modelID); err != nil {
 			return fmt.Sprintf("error: %v", err)
 		}
-		// Config written — restart the process to load the new model.
-		go func() {
-			time.Sleep(300 * time.Millisecond)
-			exe, err := os.Executable()
-			if err != nil {
-				slog.Error("restart: cannot resolve executable", "error", err)
-				os.Exit(0)
-			}
-			cmd := exec.Command(exe, os.Args[1:]...)
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Start(); err != nil {
-				slog.Error("restart: failed to start new process", "error", err)
-			}
-			os.Exit(0)
-		}()
+		// Mirror the new path into the in-memory config so that the next call to
+		// getInitialData() returns the updated Active flag and the UI stays correct.
+		modelsDir := sussurroModelsDir()
+		switch modelID {
+		case "whisper-small":
+			mgr.cfg.Models.ASR.Path = modelsDir + "/ggml-small.bin"
+		case "whisper-large-v3-turbo":
+			mgr.cfg.Models.ASR.Path = modelsDir + "/ggml-large-v3-turbo.bin"
+		}
+		// Config written — the UI shows a restart banner instead of forcing a
+		// process restart, so in-flight audio/pipeline goroutines are not disrupted.
 		return "ok"
 	})
 
@@ -142,9 +136,15 @@ func bindBridge(sw *settingsWindow) {
 	})
 }
 
-func buildInitialData(mgr *Manager) initialData {
+// sussurroModelsDir returns the canonical path to the directory where Sussurro
+// stores its model files (~/.sussurro/models).
+func sussurroModelsDir() string {
 	homeDir, _ := os.UserHomeDir()
-	modelsDir := homeDir + "/.sussurro/models"
+	return homeDir + "/.sussurro/models"
+}
+
+func buildInitialData(mgr *Manager) initialData {
+	modelsDir := sussurroModelsDir()
 
 	whisperSmallPath := modelsDir + "/ggml-small.bin"
 	whisperLargePath := modelsDir + "/ggml-large-v3-turbo.bin"
@@ -212,8 +212,7 @@ func fileExists(path string) bool {
 
 // resolveModelDownload maps a model ID to its download URL and local path.
 func resolveModelDownload(modelID string) (url, dest, name string) {
-	homeDir, _ := os.UserHomeDir()
-	modelsDir := homeDir + "/.sussurro/models"
+	modelsDir := sussurroModelsDir()
 
 	switch modelID {
 	case "whisper-small":

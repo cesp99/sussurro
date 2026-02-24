@@ -2,6 +2,19 @@
 
 All notable changes to Sussurro will be documented in this file.
 
+## [1.6] - 2026-02-24
+
+### Added
+- **macOS overlay blur + border**: the capsule overlay now uses `NSVisualEffectView` (material `HUDWindow`, `NSAppearanceNameVibrantDark`) as a frosted-glass backdrop clipped to the pill silhouette, making it legible over any background. A 1.5 px semi-transparent white border is drawn as an inset stroke around the pill on both macOS and Linux.
+- **Model-switch restart banner**: switching the active Whisper model in Settings no longer force-quits and relaunches the process. Instead, the config is saved silently and a blue info banner — *"Restart Sussurro to load the new model into memory"* — appears at the bottom of the settings window. The running pipeline is not disrupted.
+- **In-memory config sync after model switch**: after `setup.SetActiveModel` writes the new ASR path to disk, `mgr.cfg.Models.ASR.Path` is updated in memory immediately. This fixes a race where `reloadSettings()` would read stale data and snap the UI back to the previously active model for one frame.
+
+### Fixed
+- **`onDownloadProgress` fragile name match**: download progress updates now target `#prog-<modelId>` / `#pct-<modelId>` directly by element ID instead of scanning all `.model-name` spans for a matching first word — removes a latent bug if two models share a first word.
+- **`onTrayExit` no-op**: the systray exit callback now calls `m.Quit()` so the `quitCh` is closed and `processUpdates` goroutine drains cleanly when the OS removes the tray icon.
+- **`sussurroModelsDir()` helper**: the `~/.sussurro/models` path was duplicated in `buildInitialData` and `resolveModelDownload`; both now call a single `sussurroModelsDir()` helper.
+- **Removed stale `time` import** from `settings_bridge.go` after the auto-restart goroutine was deleted.
+
 ## [1.5] - 2026-02-23
 
 ### Added

@@ -144,8 +144,27 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef link,
                          CGRectMake(0, 0, w, h), r, r);
     CGContextAddPath(ctx, path);
     CGPathRelease(path);
-    CGContextSetRGBFillColor(ctx, 0.102, 0.102, 0.102, 0.90);
+    /* Dark tint over the blur backdrop — lighter than before since the
+       NSVisualEffectView beneath provides the frosted-glass body. */
+    CGContextSetRGBFillColor(ctx, 0, 0, 0, 0.28);
     CGContextFillPath(ctx);
+
+    /* 1.5 px white border, inset by half the stroke width so it is not
+       clipped by the NSVisualEffectView pill mask. */
+    {
+        CGFloat inset   = 0.75;
+        CGFloat borderR = r - inset;
+        if (borderR < 0) borderR = 0;
+        CGMutablePathRef bp = CGPathCreateMutable();
+        CGPathAddRoundedRect(bp, NULL,
+            CGRectMake(inset, inset, w - inset * 2, h - inset * 2),
+            borderR, borderR);
+        CGContextAddPath(ctx, bp);
+        CGPathRelease(bp);
+        CGContextSetRGBStrokeColor(ctx, 1, 1, 1, 0.25);
+        CGContextSetLineWidth(ctx, 1.5);
+        CGContextStrokePath(ctx);
+    }
 
     switch (state) {
     case OVERLAY_STATE_IDLE:   [self drawDots:ctx w:w h:h]; break;
@@ -293,9 +312,30 @@ void* overlay_create_macos(void)
         NSWindowCollectionBehaviorIgnoresCycle     |
         NSWindowCollectionBehaviorFullScreenAuxiliary;
 
-    g_view = [[SussurroView alloc] initWithFrame:
-              NSMakeRect(0, 0, frame.size.width, frame.size.height)];
-    [g_panel setContentView:g_view];
+    NSRect viewRect = NSMakeRect(0, 0, frame.size.width, frame.size.height);
+    CGFloat blurR   = floor(MIN(frame.size.width, frame.size.height) / 2.0);
+
+    /* NSVisualEffectView — real OS-level blur of whatever is behind the window. */
+    NSVisualEffectView *blurView = [[NSVisualEffectView alloc]
+                                    initWithFrame:viewRect];
+    blurView.material     = NSVisualEffectMaterialHUDWindow;
+    blurView.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+    blurView.state        = NSVisualEffectStateActive;
+    blurView.appearance   = [NSAppearance
+                              appearanceNamed:NSAppearanceNameVibrantDark];
+    blurView.wantsLayer   = YES;
+
+    /* Clip the blur strictly to the pill silhouette so it doesn't bleed
+       outside the capsule on either axis. */
+    CAShapeLayer *pillMask = [CAShapeLayer layer];
+    pillMask.path = CGPathCreateWithRoundedRect(
+        CGRectMake(0, 0, frame.size.width, frame.size.height),
+        blurR, blurR, NULL);
+    blurView.layer.mask = pillMask;
+
+    g_view = [[SussurroView alloc] initWithFrame:viewRect];
+    [blurView addSubview:g_view];
+    [g_panel setContentView:blurView];
     /* Defer the initial show until [NSApp run] is active.
        Use orderFrontRegardless so the panel appears without stealing key focus. */
     dispatch_async(dispatch_get_main_queue(), ^{

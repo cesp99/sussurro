@@ -40,7 +40,12 @@ func (m *Manager) onTrayReady() {
 	}()
 }
 
-func (m *Manager) onTrayExit() {}
+// onTrayExit is called by the systray library when it exits (e.g. the OS
+// removes the tray icon). Signal the quit channel so processUpdates and any
+// other goroutines waiting on it can drain cleanly.
+func (m *Manager) onTrayExit() {
+	m.Quit()
+}
 
 // updateTrayIcon swaps the tray icon based on recording state.
 func (m *Manager) updateTrayIcon(state AppState) {

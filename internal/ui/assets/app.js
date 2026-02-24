@@ -68,8 +68,9 @@ function renderModelList(containerId, models, groupName) {
         const res = await window.setActiveModel(m.id);
         if (res.startsWith('error')) { radio.checked = false; return; }
 
-        // Config written — app will restart momentarily; disable all inputs
-        lockUI();
+        // Config written — refresh the active badge then show the restart banner.
+        await reloadSettings();
+        showRestartBanner();
       });
     }
 
@@ -83,11 +84,10 @@ function renderModelList(containerId, models, groupName) {
   });
 }
 
-// Disable all interactive elements while the app restarts
-function lockUI() {
-  document.querySelectorAll('button, input').forEach(el => el.disabled = true);
-  const st = document.querySelector('.status-text');
-  if (st) st.textContent = 'Restarting…';
+// Show a persistent banner prompting the user to restart to apply model changes.
+function showRestartBanner() {
+  const banner = document.getElementById('restart-banner');
+  if (banner) banner.hidden = false;
 }
 
 function installedBadge() {
@@ -117,18 +117,12 @@ function startDownload(modelId, modelName) {
   window.downloadModel(modelId);
 }
 
-// Called from Go via webview.Eval
-window.onDownloadProgress = function(name, percent) {
-  document.querySelectorAll('.model-item').forEach(item => {
-    const nameEl = item.querySelector('.model-name');
-    if (nameEl && nameEl.textContent.includes(name.split(' ')[0])) {
-      const id   = item.dataset.id;
-      const prog = document.getElementById(`prog-${id}`);
-      const pct  = document.getElementById(`pct-${id}`);
-      if (prog) prog.value = percent / 100;
-      if (pct)  pct.textContent = `${Math.round(percent)}%`;
-    }
-  });
+// Called from Go via webview.Eval — matched by model ID, not name text.
+window.onDownloadProgress = function(modelId, percent) {
+  const prog = document.getElementById(`prog-${modelId}`);
+  const pct  = document.getElementById(`pct-${modelId}`);
+  if (prog) prog.value = percent / 100;
+  if (pct)  pct.textContent = `${Math.round(percent)}%`;
 };
 
 window.onDownloadComplete = function(modelId) {

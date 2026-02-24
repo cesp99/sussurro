@@ -64,12 +64,15 @@ The UI layer runs alongside the pipeline and provides visual feedback without bl
 - Implemented in pure C/CGO on top of **GTK3** and **Cairo**.
 - A pill-shaped floating window, always on top (`_NET_WM_STATE_ABOVE` on X11; wlr-layer-shell on Wayland if `gtk-layer-shell` is installed).
 - Global hotkey captured via GDK `XGrabKey` (X11).
+- **1.5 px white border** rendered with Cairo as an inset pill stroke (`rgba(1, 1, 1, 0.30)`).
 
 **macOS** (`internal/ui/overlay_darwin.m`)
 - Implemented in Objective-C on top of **Cocoa** and **CoreVideo** (`CVDisplayLink` for smooth 60 fps animation).
 - `NSPanel` at `NSStatusWindowLevel` with `hidesOnDeactivate=NO` and `NSWindowCollectionBehaviorFullScreenAuxiliary` so it stays visible above full-screen apps.
 - Global hotkey registered via **`golang.design/x/hotkey`** (CGEventTap) in `app_darwin.go`, after `[NSApp run]` is active.
 - Uses `orderFrontRegardless` instead of `makeKeyAndOrderFront` to avoid stealing keyboard focus.
+- **Frosted-glass backdrop**: an `NSVisualEffectView` (`NSVisualEffectMaterialHUDWindow`, `NSVisualEffectBlendingModeBehindWindow`, `NSAppearanceNameVibrantDark`) sits below the drawing view and is masked to the pill silhouette via a `CAShapeLayer`, so the OS renders a real blur of whatever is behind the window.
+- **1.5 px white border** drawn as an inset pill stroke (`rgba(1, 1, 1, 0.25)`) over a light dark tint (`rgba(0, 0, 0, 0.28)`).
 
 **Shared visual states** (both platforms):
 - **Idle** — 7 softly pulsing white dots
@@ -87,6 +90,7 @@ The UI layer runs alongside the pipeline and provides visual feedback without bl
 - Embeds HTML/CSS/JS assets at compile time; no external files required at runtime.
 - JS bindings exposed to Go: model download with live progress, hotkey configuration, model switching.
 - **Hotkey recording modal**: displays a live preview of the key combination as keys are held, and finalises the combo on key release. Requires at least one non-modifier key.
+- **Model switch UX**: selecting a different Whisper model writes the new path to `~/.sussurro/config.yaml` and updates `mgr.cfg` in memory (so the active badge reflects the new selection immediately). A persistent blue banner prompts the user to restart to load the new model; the running pipeline is not interrupted.
 - On macOS, `NSWindowDelegate` intercepts the close button to hide (not destroy) the window, preserving the WebKit backing store across open/close cycles.
 
 ### System Tray (`internal/ui/app.go`)

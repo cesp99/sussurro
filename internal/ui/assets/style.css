@@ -266,6 +266,21 @@ kbd {
 }
 .modal-cancel:hover { color: var(--text); }
 
+/* ---- Restart banner ---- */
+.restart-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  background: rgba(10, 132, 255, 0.10);
+  border-top: 1px solid rgba(10, 132, 255, 0.25);
+  font-size: 12px;
+  color: var(--blue);
+  font-weight: 500;
+  flex-shrink: 0;
+  text-align: center;
+}
+
 /* ---- Status bar ---- */
 .statusbar {
   display: flex;
