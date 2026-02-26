@@ -75,7 +75,7 @@ Option B — build from source:
 ```bash
 git clone https://github.com/cesp99/sussurro.git
 cd sussurro
-make build-ui        # builds with overlay + settings UI
+make build        # builds with overlay + settings UI
 ```
 
 **Step 3: First run** — open a terminal and run:
@@ -103,7 +103,7 @@ sudo apt install libgtk-layer-shell0
 sudo apt install wl-clipboard
 ```
 
-**Step 2–4:** Same as Arch above (use `make build-ui`).
+**Step 2–4:** Same as Arch above (use `make build`).
 
 ---
 
