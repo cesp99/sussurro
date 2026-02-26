@@ -128,7 +128,7 @@ Output ONLY the cleaned transcription text, nothing else.
 
 	// Anti-Hallucination Check
 	if !validateOutput(rawText, cleaned) {
-		return rawText, nil // Fallback to raw text
+		return fixPunctuationSpacing(rawText), nil // Fallback to raw text, still fix spacing
 	}
 
 	return cleaned, nil
@@ -137,11 +137,11 @@ Output ONLY the cleaned transcription text, nothing else.
 // fixPunctuationSpacing ensures proper spacing after punctuation marks
 func fixPunctuationSpacing(text string) string {
 	// Add space after period when:
-	// - Preceded by a lowercase letter (not abbreviation like U.S.)
-	// - Followed by a capital letter (start of new sentence)
-	// This handles: "sentence.Another" -> "sentence. Another"
-	// Preserves: "U.S.A.", "Google.com", "example.org"
-	re := regexp.MustCompile(`([a-z])\.([A-Z])`)
+	// - Preceded by any letter (catches "I.Like", "OK.So", "USA.The" as well as "sentence.Another")
+	// - Followed by an uppercase+lowercase sequence (a real word, not an abbreviation letter)
+	// This handles: "sentence.Another", "I.Like", "OK.So" -> adds space
+	// Preserves: "U.S.A." (S followed by dot not [a-z]), "google.com" (c is lowercase not [A-Z])
+	re := regexp.MustCompile(`([a-zA-Z])\.([A-Z][a-z])`)
 	text = re.ReplaceAllString(text, "$1. $2")
 
 	// Handle ! and ? (less likely to be in URLs or abbreviations)
