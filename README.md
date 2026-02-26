@@ -38,6 +38,13 @@ Sussurro uses local AI models to ensure privacy and low latency:
 
 ## Getting Started
 
+### Quick Install (Linux or macOS)
+
+To quickly install the latest release, run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/cesp99/sussurro/master/scripts/install.sh | bash
+```
+
 ### Linux (Arch/Manjaro) — UI Mode
 
 **Step 1: Install UI dependencies**
