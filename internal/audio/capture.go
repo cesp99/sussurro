@@ -1,13 +1,25 @@
 package audio
 
 import (
-	"encoding/binary"
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/gen2brain/malgo"
 )
+
+// byteBufPool recycles the temporary []byte copies that the malgo device
+// callback makes before handing data to the processing pipeline.
+// Audio chunks are fixed-size for the lifetime of a capture session, so
+// the pool reaches steady-state almost immediately.
+var byteBufPool = sync.Pool{
+	New: func() any {
+		buf := make([]byte, 0, 4096)
+		return &buf
+	},
+}
 
 // CaptureEngine handles audio recording using malgo (miniaudio)
 type CaptureEngine struct {
@@ -19,16 +31,18 @@ type CaptureEngine struct {
 	isRecording  bool
 	mutex        sync.Mutex
 	dataCallback func([]byte)
-	rmsCB        func(float32) // optional RMS callback, set via SetRMSCallback
+	rmsCB        atomic.Pointer[func(float32)] // RMS callback; atomic for lock-free hot-path reads
 }
 
 // SetRMSCallback installs a callback that receives the RMS level of each
 // incoming audio chunk.  The callback is invoked from the audio thread —
 // implementations must be non-blocking.
 func (e *CaptureEngine) SetRMSCallback(cb func(float32)) {
-	e.mutex.Lock()
-	e.rmsCB = cb
-	e.mutex.Unlock()
+	if cb == nil {
+		e.rmsCB.Store(nil)
+		return
+	}
+	e.rmsCB.Store(&cb)
 }
 
 // computeRMS returns the root-mean-square of a float32 sample slice.
@@ -70,23 +84,20 @@ func (e *CaptureEngine) StartRecording(dataChan chan<- []float32) error {
 
 	// Define the callback that writes to the channel
 	onData := func(data []byte) {
-		// Convert byte slice to float32 slice
-		// data contains raw F32 samples (4 bytes each)
+		// Reinterpret the raw F32 bytes as a []float32 via unsafe — avoids a
+		// per-sample decode loop and compiles down to a single memcpy.
 		numSamples := len(data) / 4
 		floats := make([]float32, numSamples)
-
-		for i := 0; i < numSamples; i++ {
-			bits := binary.LittleEndian.Uint32(data[i*4 : (i+1)*4])
-			floats[i] = math.Float32frombits(bits)
+		if numSamples > 0 {
+			src := unsafe.Slice((*float32)(unsafe.Pointer(&data[0])), numSamples)
+			copy(floats, src)
 		}
 
-		// Invoke RMS callback (non-blocking) if installed
-		e.mutex.Lock()
-		cb := e.rmsCB
-		e.mutex.Unlock()
-		if cb != nil {
+		// Invoke RMS callback (non-blocking, lock-free atomic read)
+		cbPtr := e.rmsCB.Load()
+		if cbPtr != nil {
 			rms := computeRMS(floats)
-			cb(rms)
+			(*cbPtr)(rms)
 		}
 
 		// Non-blocking send
@@ -115,18 +126,26 @@ func (e *CaptureEngine) startDevice(onData func([]byte)) error {
 	// Callback to handle incoming audio data
 	e.device, err = malgo.InitDevice(e.ctx.Context, deviceConfig, malgo.DeviceCallbacks{
 		Data: func(pOutputSample, pInputSamples []byte, framecount uint32) {
-			if e.dataCallback != nil {
-				// We received F32 samples as bytes
-				// Copy them to ensure memory safety
-				if len(pInputSamples) == 0 {
-					return
-				}
-
-				dataCopy := make([]byte, len(pInputSamples))
-				copy(dataCopy, pInputSamples)
-
-				e.dataCallback(dataCopy)
+			if e.dataCallback == nil || len(pInputSamples) == 0 {
+				return
 			}
+
+			// Grab a pooled byte buffer and resize it to fit this chunk.
+			// onData (dataCallback) is synchronous so the buffer can be
+			// returned to the pool as soon as the call returns.
+			rawPtr := byteBufPool.Get().(*[]byte)
+			raw := *rawPtr
+			if cap(raw) < len(pInputSamples) {
+				raw = make([]byte, len(pInputSamples))
+			} else {
+				raw = raw[:len(pInputSamples)]
+			}
+			copy(raw, pInputSamples)
+			*rawPtr = raw
+
+			e.dataCallback(raw)
+
+			byteBufPool.Put(rawPtr)
 		},
 	})
 	if err != nil {

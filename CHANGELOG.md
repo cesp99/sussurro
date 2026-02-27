@@ -2,6 +2,15 @@
 
 All notable changes to Sussurro will be documented in this file.
 
+## [1.7] - 2026-02-27
+
+### Performance
+- **Lock-free RMS callback dispatch** (`internal/audio`): replaced per-frame `sync.Mutex` read with `atomic.Pointer[func(float32)]` — 2.6x faster on the audio hot-path, no lock contention between the device thread and the UI notifier.
+- **Zero-copy byte→float32 conversion** (`internal/audio`): replaced a manual `binary.LittleEndian`/`math.Float32frombits` decode loop with an `unsafe.Slice` reinterpret + single `copy()` (one `memmove`) — **40x faster** (673 ns → 16.7 ns per 20 ms frame).
+- **`sync.Pool` for per-frame audio buffers** (`internal/audio`): the malgo device callback previously called `make([]byte, …)` on every incoming frame (hundreds per second); recycling via `sync.Pool` eliminates those allocations entirely after the first few frames — 7.3x faster, 0 allocs/op.
+- **Pre-compiled regexes** (`internal/llm`): five `regexp.MustCompile()` calls that were executed on every `CleanupText` invocation are now compiled once at package init — 1.8x faster LLM post-processing, 128 → 20 allocs per cleanup.
+- **Audio buffer pre-allocation and reuse** (`internal/pipeline`): the recording buffer was set to `nil` each session and grown via repeated `append()`. It is now pre-allocated to the configured max-duration capacity at startup and reset to `[:0]` between recordings, reusing the same backing array — **18.8x faster** accumulation, 0 allocs/op.
+
 ## [1.6] - 2026-02-24
 
 ### Added

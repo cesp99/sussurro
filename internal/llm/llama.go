@@ -10,6 +10,15 @@ import (
 	"github.com/cesp99/sussurro/internal/logger"
 )
 
+// Pre-compiled regexes — compiling on every call is expensive.
+var (
+	reThinkBlock   = regexp.MustCompile(`(?s)<think>.*?</think>`)
+	rePunctDot     = regexp.MustCompile(`([a-zA-Z])\.([A-Z][a-z])`)
+	reExclQuestion = regexp.MustCompile(`([!?])([A-Za-z])`)
+	reComma        = regexp.MustCompile(`(,)([A-Za-z0-9])`)
+	reMultiSpace   = regexp.MustCompile(`\s{2,}`)
+)
+
 // Engine handles the LLM model and text generation
 type Engine struct {
 	model   *llama.LLama
@@ -99,8 +108,7 @@ Output ONLY the cleaned transcription text, nothing else.
 
 	// Remove <think>...</think> blocks (including multiline)
 	// Also handle unclosed <think> tags by removing everything from <think> onwards
-	re := regexp.MustCompile(`(?s)<think>.*?</think>`)
-	cleaned = re.ReplaceAllString(cleaned, "")
+	cleaned = reThinkBlock.ReplaceAllString(cleaned, "")
 
 	// Handle unclosed <think> tags (remove from <think> to end of string)
 	if strings.Contains(cleaned, "<think>") {
@@ -141,20 +149,16 @@ func fixPunctuationSpacing(text string) string {
 	// - Followed by an uppercase+lowercase sequence (a real word, not an abbreviation letter)
 	// This handles: "sentence.Another", "I.Like", "OK.So" -> adds space
 	// Preserves: "U.S.A." (S followed by dot not [a-z]), "google.com" (c is lowercase not [A-Z])
-	re := regexp.MustCompile(`([a-zA-Z])\.([A-Z][a-z])`)
-	text = re.ReplaceAllString(text, "$1. $2")
+	text = rePunctDot.ReplaceAllString(text, "$1. $2")
 
 	// Handle ! and ? (less likely to be in URLs or abbreviations)
-	re = regexp.MustCompile(`([!?])([A-Za-z])`)
-	text = re.ReplaceAllString(text, "$1 $2")
+	text = reExclQuestion.ReplaceAllString(text, "$1 $2")
 
 	// Add space after comma if followed by a letter or digit (no space)
-	re = regexp.MustCompile(`(,)([A-Za-z0-9])`)
-	text = re.ReplaceAllString(text, "$1 $2")
+	text = reComma.ReplaceAllString(text, "$1 $2")
 
 	// Clean up multiple spaces
-	re = regexp.MustCompile(`\s{2,}`)
-	text = re.ReplaceAllString(text, " ")
+	text = reMultiSpace.ReplaceAllString(text, " ")
 
 	return text
 }

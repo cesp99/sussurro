@@ -15,6 +15,21 @@ import (
 	"github.com/cesp99/sussurro/internal/llm"
 )
 
+// audioBufferCapFor returns a sensible pre-allocation capacity (in samples)
+// for the audio buffer based on the configured max duration.
+func audioBufferCapFor(maxDuration string, sampleRate int) int {
+	const fallbackSecs = 30
+	switch strings.ToLower(maxDuration) {
+	case "infinite", "0", "":
+		return fallbackSecs * sampleRate // reasonable starting size for infinite mode
+	}
+	d, err := time.ParseDuration(maxDuration)
+	if err != nil {
+		d = fallbackSecs * time.Second
+	}
+	return int(d.Seconds() * float64(sampleRate))
+}
+
 // StateNotifier receives pipeline state transitions and audio RMS values.
 // Implementations must be non-blocking (use channels / async dispatch internally).
 type StateNotifier interface {
@@ -46,6 +61,7 @@ type Pipeline struct {
 	isRecording    bool
 	isTranscribing bool // true while processSegment is running; blocks new recordings
 	audioBuffer    []float32
+	audioBufferCap int        // pre-computed capacity to avoid repeated slice growth
 	mu             sync.Mutex // Protects isRecording, isTranscribing, and audioBuffer
 	maxDuration    string
 }
@@ -65,16 +81,17 @@ func NewPipeline(
 	vadParams.SampleRate = sampleRate // Override with actual sample rate
 
 	return &Pipeline{
-		audioEngine: audioEngine,
-		asrEngine:   asrEngine,
-		llmEngine:   llmEngine,
-		ctxProvider: ctxProvider,
-		injector:    injector,
-		log:         log,
-		vadParams:   vadParams,
-		audioChan:   make(chan []float32, 100), // Buffer audio chunks
-		stopChan:    make(chan struct{}),
-		maxDuration: maxDuration,
+		audioEngine:    audioEngine,
+		asrEngine:      asrEngine,
+		llmEngine:      llmEngine,
+		ctxProvider:    ctxProvider,
+		injector:       injector,
+		log:            log,
+		vadParams:      vadParams,
+		audioBufferCap: audioBufferCapFor(maxDuration, sampleRate),
+		audioChan:      make(chan []float32, 100), // Buffer audio chunks
+		stopChan:       make(chan struct{}),
+		maxDuration:    maxDuration,
 	}
 }
 
@@ -141,7 +158,14 @@ func (p *Pipeline) StartRecording() {
 	}
 
 	p.isRecording = true
-	p.audioBuffer = nil // Clear buffer
+	// Reuse the backing array from the previous recording to avoid re-allocating
+	// every time. On the very first recording we make an upfront allocation sized
+	// to the configured max duration so appends never need to grow the slice.
+	if cap(p.audioBuffer) > 0 {
+		p.audioBuffer = p.audioBuffer[:0]
+	} else {
+		p.audioBuffer = make([]float32, 0, p.audioBufferCap)
+	}
 	p.log.Debug("Recording started")
 	p.notifyState(1) // StateRecording
 }
